@@ -61,7 +61,7 @@ test('class isolation, phone accounts, forced password change, grants, profile a
     assert.equal((await request(route,'PUT',{data:blank.data,revision:0},owner)).status,409);
     assert.equal((await request('/users','POST',{name:'Sai số',phone:'123',role:'viewer'},owner)).status,400);
     const requiredOnly={studentName:'Nguyễn Minh Anh',phone:'0901234567',role:'viewer',classIds:[classId]};
-    for(const patch of [{studentName:''},{studentName:' '.repeat(3)},{parentName:42},{relationship:'x'.repeat(81)},{classIds:[]},{classIds:['missing']},{phone:'123'}])assert.equal((await request('/users','POST',{...requiredOnly,...patch},owner)).status,400);
+    for(const patch of [{studentName:''},{studentName:' '.repeat(3)},{parentName:42},{relationship:'x'.repeat(81)},{address:42},{address:'x'.repeat(501)},{classIds:[]},{classIds:['missing']},{phone:'123'}])assert.equal((await request('/users','POST',{...requiredOnly,...patch},owner)).status,400);
     assert.equal((await request('/users','POST',requiredOnly,owner)).status,201);
     assert.equal((await request('/users','POST',requiredOnly,owner)).status,409);
     const enrolled=(await request(route,'GET',undefined,owner)).body;
@@ -76,11 +76,12 @@ test('class isolation, phone accounts, forced password change, grants, profile a
     assert.equal(manualLogin.body.user.name,'PH của Nguyễn Minh Anh');
     assert.equal((await request('/auth/session','GET',undefined,session(manualLogin))).body.user.studentName,'Nguyễn Minh Anh');
     assert.equal((await request(route,'GET',undefined,session(manualLogin))).status,403);
-    const named={...requiredOnly,phone:'0901234568',parentName:'  Nguyễn Thu Hà  ',relationship:'  Mẹ  '};
+    const named={...requiredOnly,phone:'0901234568',address:'  12 Tây Sơn, Đà Nẵng  ',parentName:'  Nguyễn Thu Hà  ',relationship:'  Mẹ  '};
     assert.equal((await request('/users','POST',named,owner)).status,201);
     const namedUser=(await request('/users','GET',undefined,owner)).body.users.find(u=>u.phone===named.phone);
     assert.equal(namedUser.parentName,'Nguyễn Thu Hà');assert.equal(namedUser.name,'Nguyễn Thu Hà');assert.equal(namedUser.relationship,'Mẹ');
-    assert.equal((await request(route,'GET',undefined,owner)).body.data.students.length,3);
+    const namedState=(await request(route,'GET',undefined,owner)).body;
+    assert.equal(namedState.data.students.length,3);assert.equal(namedState.data.students[2].address,'12 Tây Sơn, Đà Nẵng');
     assert.equal(app.db.prepare('SELECT student_name FROM users WHERE id=?').get(namedUser.id).student_name,named.studentName);
     const bulk=await request('/users/from-students','POST',{},owner);
     assert.equal(bulk.body.created,1);assert.equal(bulk.body.skipped,18);
@@ -167,6 +168,11 @@ test('account enrollment reuses student records, preserves details and rolls bac
     assert.equal((await request('/users','POST',{...profile,phone:'0901234569',studentName:'Học sinh mới',parentName:'',relationship:''})).status,201);
     state=(await request('/state')).body;assert.equal(state.data.students.length,21);
     assert.equal(state.data.students[20].parent,'');assert.equal(state.data.students[20].phone,'');assert.equal(state.data.students[20].parentPhone,'0901234569');
+    const withAddress={...profile,phone:'0901234560',studentName:data.students[1].name,address:'Địa chỉ cập nhật'};
+    const incomplete=(await request('/state')).body;incomplete.data.students[1].parentPhone='';
+    assert.equal((await request('/state','PUT',{data:incomplete.data,revision:incomplete.revision})).status,200);
+    assert.equal((await request('/users','POST',{...withAddress,parentName:data.students[1].parent})).status,201);
+    const updated=(await request('/state')).body.data;assert.equal(updated.students.length,21);assert.equal(updated.students[1].address,withAddress.address);
   }finally{await new Promise(resolve=>app.server.close(resolve));app.db.close();}
 });
 

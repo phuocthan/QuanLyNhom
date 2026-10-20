@@ -50,6 +50,7 @@ with sync_playwright() as p:
     assert form.locator('[name=relationship]').get_attribute('required') is None
     form.locator('[name=studentName]').fill('Học sinh thử nghiệm')
     form.locator('[name=phone]').fill('0912345678')
+    form.locator('[name=address]').fill('12 Tây Sơn, Đà Nẵng')
     form.locator('[name=role]').select_option('viewer')
     form.get_by_role('button',name='Tạo tài khoản',exact=True).click()
     expect(page.locator('.account-list')).to_contain_text('0912345678')
@@ -60,6 +61,7 @@ with sync_playwright() as p:
     page.reload();page.wait_for_load_state('networkidle')
     expect(page.locator('.students-table tbody tr')).to_have_count(21)
     page.get_by_role('button',name='Sửa Học sinh thử nghiệm',exact=True).click()
+    expect(page.locator('#f-address')).to_have_value('12 Tây Sơn, Đà Nẵng')
     expect(page.locator('#f-parent')).to_have_value('')
     expect(page.locator('#f-relation')).to_have_value('')
     page.locator('#f-note').fill('Bổ sung sau khi tạo tài khoản')
@@ -82,6 +84,7 @@ with sync_playwright() as p:
     expect(other.get_by_role('heading',name='Tổng quan',exact=True)).to_be_visible()
     other.goto(BASE+'/#students')
     expect(other.locator('.students-table tbody tr')).to_have_count(21)
+    expect(other.locator('.students-table')).to_contain_text('12 Tây Sơn, Đà Nẵng')
     other.get_by_role('button',name='Thêm học sinh',exact=True).click()
     expect(other.locator('#toast')).to_contain_text('chỉ có quyền xem')
     expect(other.locator('#student-form')).to_have_count(0)

@@ -149,6 +149,7 @@ export function syncAccountStudent(db,profile,classId,userId){
   student.parentPhone=profile.phone;
   if(profile.parentName)student.parent=profile.parentName;
   if(profile.relationship)student.relation=profile.relationship;
+  if(profile.address)student.address=profile.address;
   student.demo=false;
   if(added||JSON.stringify(student)!==before){
     const result=saveState(db,state.data,state.revision,userId,classId);
