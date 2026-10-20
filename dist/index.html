@@ -12,20 +12,21 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;450;500;550;600;650;700;750;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
+  <script src="/runtime.js"></script>
   <script type="module" src="/app.js"></script>
 </head>
 <body>
   <a href="#main" class="skip-link">Đến nội dung chính</a>
   <aside class="sidebar" aria-label="Điều hướng chính">
-    <a class="brand" href="#overview"><img src="/icon.svg" width="40" height="40" alt=""><span>Cùng học<span class="brand-tag">Kết nối để cùng tiến bộ</span></span></a>
-    <div class="class-card"><span class="class-symbol">6A1</span><div><strong id="sidebar-class">Lớp 6A1</strong><small>Không gian phụ huynh</small></div><span class="class-dot"></span></div>
+    <a class="brand" href="#overview"><img src="/icon.svg" width="40" height="40" alt=""><span>Cùng học</span></a>
+    <div class="class-card"><span class="class-symbol">7/14</span><div><strong id="sidebar-class">Lớp 7/14</strong><small id="sidebar-school">THCS Tây Sơn - Đà Nẵng</small></div><span class="class-dot"></span></div>
     <nav id="nav"></nav>
-    <div class="sidebar-bottom"><div class="sidebar-note"><span class="note-art" aria-hidden="true">✦</span><strong>Học cùng bạn,<br>vui hơn mỗi ngày.</strong><p>Một nơi nhỏ cho những<br>kết nối thật gần.</p></div><button class="nav-item" data-action="settings"><span data-icon="settings"></span><span>Dữ liệu & cài đặt</span></button><div class="sidebar-profile"><span class="avatar parent">PH</span><div><strong>Góc phụ huynh</strong><small>Đồng hành cùng con</small></div></div></div>
+    <div class="sidebar-bottom"><button class="nav-item" data-action="settings"><span data-icon="settings"></span><span>Dữ liệu & cài đặt</span></button><div class="sidebar-profile"><span class="avatar parent">PH</span><div><strong>Góc phụ huynh</strong><small>Tài khoản</small></div></div></div>
   </aside>
   <div class="app-shell">
-    <header class="topbar"><div class="breadcrumb"><span data-icon="school"></span><span>Không gian lớp học</span><span class="crumb-slash">/</span><strong id="top-class">Lớp 6A1</strong></div><div class="top-actions"><button class="search-trigger" data-action="search"><span data-icon="search"></span><span>Tìm kiếm trong lớp…</span><kbd>Ctrl K</kbd></button><span class="local-indicator"><i></i> Đã lưu trên máy</span><button class="avatar parent profile-button" data-action="settings" aria-label="Mở dữ liệu và cài đặt">PH</button></div></header>
+    <header class="topbar"><div class="breadcrumb"><span data-icon="school"></span><div class="school-context"><strong id="top-class">Lớp 7/14</strong><small id="top-school">THCS Tây Sơn - Đà Nẵng</small></div></div><div class="top-actions"><button class="search-trigger" data-action="search"><span data-icon="search"></span><span>Tìm kiếm trong lớp…</span><kbd>Ctrl K</kbd></button><span class="local-indicator"><i></i> Đã lưu trên máy</span><button class="avatar parent profile-button" data-action="settings" aria-label="Mở dữ liệu và cài đặt">PH</button></div></header>
     <main id="main" tabindex="-1"></main>
-    <footer class="app-footer"><span>Cùng học <span aria-hidden="true">✦</span> Kết nối những buổi học ý nghĩa</span><button data-action="settings">Dữ liệu mẫu · Lưu trên thiết bị này</button></footer>
+
   </div>
   <nav id="mobile-nav" aria-label="Điều hướng trên điện thoại"></nav>
   <dialog id="modal" aria-labelledby="modal-title"><div id="modal-content"></div></dialog>

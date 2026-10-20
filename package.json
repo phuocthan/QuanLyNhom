@@ -4,9 +4,13 @@
   "private": true,
   "description": "Quản lý học nhóm cho học sinh và phụ huynh",
   "type": "module",
+  "engines": { "node": ">=24.0.0" },
   "scripts": {
-    "dev": "node scripts/serve.mjs",
-    "start": "node scripts/serve.mjs",
-    "check": "node --check dist/app.js && node --check dist/data.js && node --check dist/csv.js"
+    "dev": "node --watch server/index.mjs",
+    "start": "node server/index.mjs",
+    "dev:static": "node scripts/serve.mjs",
+    "build": "npm run check",
+    "test": "node --test server/*.test.mjs",
+    "check": "node --check dist/app.js && node --check dist/data.js && node --check dist/csv.js && node --check dist/cloud.js && node --check server/index.mjs && node --check server/database.mjs && node --check server/auth.mjs"
   }
 }

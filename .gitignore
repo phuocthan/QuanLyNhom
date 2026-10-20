@@ -15,3 +15,9 @@ artifacts/
 __pycache__/
 *.tar.gz
 *.tgz
+.local/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+.railway/

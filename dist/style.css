@@ -135,3 +135,38 @@
   .session-history-row{padding:14px}
   .students-table .student-address{max-width:none;font-size:13px;line-height:1.7}
 }
+
+body.auth-mode{background:#edf5ef;min-height:100dvh}
+.auth-mode>.sidebar,.auth-mode>.app-shell,.auth-mode>#mobile-nav{display:none!important}
+#auth-root{min-height:100dvh;display:grid;place-items:center;padding:28px 18px}
+.auth-card{background:white;border:1px solid #dce8df;border-radius:20px;width:100%;max-width:480px;padding:36px;box-shadow:0 12px 50px #254b3b0a}
+.auth-brand{display:flex;align-items:center;gap:12px;margin-bottom:30px;font-size:26px}
+.auth-card h1{font-size:26px;letter-spacing:-.7px;margin-bottom:13px}
+.auth-card>p{font-size:14px;color:#6b8474;margin-bottom:24px}
+.auth-card .field{gap:9px}
+.auth-card .field label{font-size:14px}
+.auth-card .field input{font-size:16px}
+.auth-card .form-grid{margin-top:23px;gap:21px}
+.auth-submit{width:100%;margin-top:24px;font-size:15px;min-height:46px}
+.auth-card .auth-footnote{font-size:12px;margin-top:24px;margin-bottom:0;color:#85968b}
+.account-list{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.account-row{padding:15px;border-bottom:1px solid var(--line)}
+.account-row:last-child{border:0}
+.account-row strong{display:block;font-size:15px}
+.account-row small{display:block;color:#7b8d80;font-size:13px;margin-top:7px;overflow-wrap:anywhere}
+.account-form-title{margin:26px 0 18px}
+@media(max-width:480px){.auth-card{padding:28px 23px}.auth-card h1{font-size:24px}}
+
+.school-context{display:flex;flex-direction:column;gap:5px;min-width:0}
+.school-context strong{font-size:15px;color:#345a47}
+.school-context small{font-size:12px;color:#728578;white-space:normal;line-height:1.5}
+.class-card{margin-top:0}
+.class-symbol{width:42px;font-size:13px}
+.class-card small{font-size:10px}
+.settings-class-row{flex-wrap:wrap}
+.settings-class-row .field{flex:1 1 100%}
+main{min-height:calc(100dvh - 82px)}
+.stats{margin-top:18px}
+@media(max-width:760px){.school-context strong{font-size:14px}.school-context small{font-size:10px}.breadcrumb{flex:1;white-space:normal}.topbar{gap:8px;padding:0 16px}.top-actions{gap:8px;flex-shrink:0}.school-context{gap:2px}main{padding-top:20px}.stats{margin-top:8px}.sidebar-profile{margin-top:8px}.page-heading{margin-bottom:20px}}
+
+.dashboard-grid .empty{padding:24px 20px}.dashboard-grid .empty p{margin:8px auto 14px;max-width:400px}.dashboard-grid .empty>.icon{width:28px;height:28px;margin-bottom:10px}

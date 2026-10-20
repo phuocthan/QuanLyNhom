@@ -1,4 +1,6 @@
 export const STORAGE_KEY = 'cung-hoc-v1';
+export const DEFAULT_CLASS='Lớp 7/14';
+export const DEFAULT_SCHOOL='THCS Tây Sơn - Đà Nẵng';
 export function localDate(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
@@ -24,7 +26,7 @@ export function createDemo() {
     {id:'g5',topicId:'t4',name:'Green buddies',members:['s2','s9','s16','s18','s19'],hostId:'s18',hostName:'Võ Ngọc Ánh',hostPhone:students[17].parentPhone,address:'20 Võ Thị Sáu, Phường Tân Định, TP. Hồ Chí Minh',date:datePlus(-3),start:'18:30',end:'20:00',note:'Cùng luyện tập bài thuyết trình.',done:true},
     {id:'g6',topicId:'t4',name:'Little gardeners',members:['s4','s8','s12','s15','s20'],hostId:'s20',hostName:'Cao Văn Sơn',hostPhone:students[19].parentPhone,address:'36 Điện Biên Phủ, Phường Gia Định, TP. Hồ Chí Minh',date:datePlus(-4),start:'19:00',end:'20:30',note:'Chuẩn bị tranh vẽ về ngôi trường xanh.',done:true}
   ];
-  return normalizeData({version:1,className:'Lớp 6A1',students,topics,groups});
+  return normalizeData({version:1,className:DEFAULT_CLASS,schoolName:DEFAULT_SCHOOL,students,topics,groups});
 }
 export function validDate(value) {
   if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;
@@ -32,6 +34,8 @@ export function validDate(value) {
 }
 // Keep existing v1 backups and browser records; new fields are additive.
 export function normalizeData(data) {
+  data.schoolName??=DEFAULT_SCHOOL;
+  if(data.className==='Lớp 6A1'||data.className==='Lớp học của tôi')data.className=DEFAULT_CLASS;
   data.students.forEach(s=>{s.address??='';});
   data.groups.forEach(g=>{g.history??=[];g.sessionId??=uid();});
   return data;
@@ -48,6 +52,7 @@ export function allSessions(data) {
 }
 export function validateData(x) {
   if(!x || x.version!==1 || typeof x.className!=='string' || !x.className.trim() || x.className.length>80) return false;
+  if(x.schoolName!==undefined&&(typeof x.schoolName!=='string'||!x.schoolName.trim()||x.schoolName.length>150))return false;
   if(!['students','topics','groups'].every(k=>Array.isArray(x[k]) && x[k].length<=5000)) return false;
   const text = (v,max=3000)=>typeof v==='string' && v.length<=max;
   const date = validDate;

@@ -1,16 +1,18 @@
 # Cùng học
 
-Ứng dụng web tiếng Việt dùng trên điện thoại và máy tính để phụ huynh quản lý việc học nhóm của con.
+Ứng dụng web tiếng Việt cho **Lớp 7/14, THCS Tây Sơn - Đà Nẵng**, dùng trên điện thoại và máy tính để quản lý học nhóm.
+
+Bản chính dùng **Node.js 24 + SQLite riêng trên Railway**, có đăng nhập và đồng bộ nhiều thiết bị. Hướng dẫn triển khai, tài khoản và chuyển dữ liệu cũ: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Chạy trên máy
 
-Yêu cầu Node.js 18 trở lên. Không cần cài thư viện cho ứng dụng.
+Yêu cầu Node.js 24 trở lên. Không cần cài thư viện runtime: backend dùng HTTP, crypto và SQLite tích hợp trong Node.
 
 ```sh
 npm run dev
 ```
 
-Mở http://localhost:5173. `npm run check` kiểm tra cú pháp JavaScript. Mã ứng dụng nằm trong `dist/`, phục vụ trực tiếp, không cần build.
+Mở http://localhost:5173 và tạo tài khoản quản trị lần đầu. Database local ở `.local/cung-hoc.sqlite`, tách biệt với Railway. `npm start` chạy server thông thường; `npm run check` kiểm tra cú pháp, `npm test` kiểm thử API/database. `npm run dev:static` chỉ chạy bản localStorage cũ.
 
 ## Có thể làm gì?
 
@@ -30,9 +32,9 @@ CSV mẫu dùng UTF-8 BOM để giữ dấu tiếng Việt, số điện thoại
 
 ## Dữ liệu mẫu và lưu trữ
 
-Lần mở đầu có 20 học sinh và 20 phụ huynh giả lập, 4 chuyên đề, 6 nhóm. Ngày học mẫu được tính từ ngày mở đầu. Tên, số và địa chỉ không phải danh bạ thật. Số bắt đầu bằng `000` được chặn thao tác liên hệ; thay bằng số thật để thử liên kết gọi/Zalo.
+Bản server mới khởi tạo lớp rỗng; chỉ nạp CSV, JSON hoặc dữ liệu mẫu khi người quản trị chọn. Bộ mẫu gồm 20 học sinh và phụ huynh, 4 chuyên đề, 6 nhóm. Số bắt đầu `000` bị chặn gọi/Zalo.
 
-Đây là cơ sở dữ liệu giả lập bằng **localStorage** (`cung-hoc-v1`). Dữ liệu nằm trên trình duyệt/thiết bị hiện tại và giữ lại khi tải lại trang. Các tab cùng nguồn cập nhật dữ liệu qua sự kiện storage. Bản này chưa có cơ sở dữ liệu máy chủ, tài khoản phụ huynh hay đồng bộ nhiều thiết bị. Liên kết website mở cùng ứng dụng nhưng không chia sẻ các thay đổi localStorage. Muốn chuyển dữ liệu, dùng **Dữ liệu & cài đặt → Xuất bản sao/Nhập bản sao**.
+SQLite trên Railway lưu tại `/data/cung-hoc.sqlite`, thuộc volume riêng. Các thiết bị đăng nhập đọc chung database; API kiểm tra revision và từ chối ghi đè dữ liệu mới từ thiết bị khác. Bản ChatGPT Sites cũ vẫn giữ localStorage để xuất dữ liệu: chọn **Xuất bản sao** ở bản cũ rồi **Nhập bản sao** ở bản Railway. Không thể tự đọc localStorage khác tên miền. Dùng JSON để giữ cả chuyên đề, nhóm và lịch sử; CSV chỉ chuyển danh sách học sinh.
 
 ## Kiểm thử
 

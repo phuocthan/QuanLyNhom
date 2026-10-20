@@ -22,7 +22,7 @@ with sync_playwright() as p:
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.goto(BASE)
     page.wait_for_load_state('networkidle')
-    expect(page.get_by_role('heading',name='Một tuần học cùng nhau')).to_be_visible()
+    expect(page.get_by_role('heading',name='Tổng quan')).to_be_visible()
     data = page.evaluate(f'JSON.parse(localStorage.getItem("{KEY}"))')
     assert len(data['students']) == 20 and len(data['groups']) == 6
     passed('20 students, 20 parents, 4 topics and 6 groups seeded')

@@ -1,0 +1,11 @@
+.git
+.agents
+.openai
+.local
+artifacts
+node_modules
+.env*
+*.sqlite*
+*.db
+*.tar.gz
+server/*.test.mjs
