@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {createDemo,validateData,normalizeData,snapshotSession,allSessions,validDate} from '../dist/data.js';
+import {parseStudentsCSV} from '../dist/csv.js';
+
+const seed=createDemo();assert.equal(validateData(seed),true);
+const legacy=structuredClone(seed);
+legacy.students.forEach(s=>delete s.address);
+legacy.groups.forEach(g=>{delete g.history;delete g.sessionId;});
+assert.equal(validateData(legacy),true);
+normalizeData(legacy);
+assert.equal(legacy.students[0].address,'');assert.deepEqual(legacy.groups[0].history,[]);
+assert.equal(validDate('2026-02-30'),false);assert.equal(validDate('2028-02-29'),true);
+assert.equal(validateData({...seed,students:[null]}),false);
+const g=seed.groups[0],old=snapshotSession(g);g.history.push(old);g.sessionId='next';g.note='Mới';
+assert.notEqual(old.note,g.note);assert.equal(validateData(seed),true);
+assert.equal(allSessions(seed).length,7);assert.equal(allSessions(seed).find(s=>s.archived).note,old.note);
+const csv=fs.readFileSync(new URL('../dist/hoc-sinh-demo.csv',import.meta.url),'utf8');
+assert.equal(csv.charCodeAt(0),0xFEFF);
+const rows=parseStudentsCSV(csv);assert.equal(rows.length,20);assert.equal(rows[0].phone,'0000000001');assert.equal(rows[0].parentPhone,'0000000021');assert.equal(rows[1].phone,'');
+const quoted='Tên HS,Tên PH,Địa chỉ,SĐT HS,SĐT PH\r\n"Nguyễn An","Nguyễn Bình","Tầng 2, nhà ""Hoa""\nĐường A",,0912345678\r\n';
+assert.equal(parseStudentsCSV(quoted)[0].address,'Tầng 2, nhà "Hoa"\nĐường A');
+assert.equal(parseStudentsCSV('Tên HS;Tên PH;Địa chỉ;SĐT HS;SĐT PH\nAn;Bình;;;0912345678')[0].parent,'Bình');
+assert.throws(()=>parseStudentsCSV('Tên HS,Tên PH\nAn,Bình'),/5 cột/);
+assert.throws(()=>parseStudentsCSV('Tên HS,Tên PH,Địa chỉ,SĐT HS,SĐT PH\nAn,Bình,,,abc'),/điện thoại/);
+assert.throws(()=>parseStudentsCSV('Tên HS,Tên PH,Địa chỉ,SĐT HS,SĐT PH\nAn,Bình,,,\nAn,Bình,,,'),/trùng/);
+assert.throws(()=>parseStudentsCSV('Tên HS,Tên PH,Địa chỉ,SĐT HS,SĐT PH\n"An,Bình,,,'),/ngoặc kép/);
+console.log('PASS: legacy migration, manual status, session snapshots, history validation, strict dates, UTF-8 CSV, leading zeros, optional phones, quoted commas/newlines, semicolon, malformed input and duplicate rejection.');

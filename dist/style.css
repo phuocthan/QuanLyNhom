@@ -95,3 +95,43 @@
 .class-card small{font-size:11px;line-height:1.5}
 .class-symbol{flex-shrink:0}
 @media(min-width:761px) and (max-width:1020px){.brand{font-size:22px;gap:7px}.brand-tag{font-size:9px}.class-card small{font-size:10px}}
+
+.pending-sessions{margin-top:26px}
+.pending-sessions>.helper{margin:-5px 0 15px}
+.session-heading{display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin:10px 0 13px}
+.session-heading h3{font-size:18px}
+.session-continue{margin-top:16px;padding:18px;background:#f4f8f5;border-radius:10px}
+.session-continue p{font-size:14px;color:#6a8172;margin-bottom:14px}
+.session-continue .btn{width:100%}
+.detail-section .section-head{margin-bottom:12px;align-items:flex-start}
+.detail-section .section-head h3{margin-bottom:0}
+.session-history{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.session-history-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:16px;text-align:left;border-bottom:1px solid var(--line)}
+.session-history-row:last-child{border-bottom:0}
+.session-history-row:hover{background:#f1f7f3}
+.session-history-row>span{min-width:0}
+.session-history-row strong{font-size:14px;display:block}
+.session-history-row small{font-size:12px;color:#7b8e80;display:block;margin-top:6px;line-height:1.7}
+.history-note{display:block;font-size:13px;color:#708576;margin-top:8px;white-space:pre-wrap;overflow-wrap:anywhere}
+.previous-note{margin-top:20px;font-size:14px;color:#718877}
+.previous-note summary{cursor:pointer;padding:10px 0}
+.previous-note p{white-space:pre-wrap;overflow-wrap:anywhere;background:#f8faf7;padding:14px;border-radius:8px}
+.csv-import-actions{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}
+.csv-table-wrap{overflow:auto;max-height:370px;border:1px solid var(--line);border-radius:9px;overscroll-behavior:contain}
+.csv-preview-table{border-collapse:collapse;font-size:12px;width:100%;min-width:690px;text-align:left}
+.csv-preview-table th{background:#eef5ef;color:#5b7b65;font-weight:600;position:sticky;top:0}
+.csv-preview-table td,.csv-preview-table th{padding:12px;border-bottom:1px solid var(--line);line-height:1.7;vertical-align:top}
+.csv-preview-table td:nth-last-child(-n+2){white-space:nowrap;font-variant-numeric:tabular-nums}
+.csv-preview-table td:nth-child(3){min-width:170px}
+#csv-preview{margin-top:20px;min-width:0}
+#csv-preview>.helper{margin-top:12px}
+.students-table .student-address{max-width:250px;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:760px){
+  .session-continue p{font-size:14px}
+  .session-heading .text-link,.detail-section .text-link{font-size:14px}
+  .csv-import-actions .btn{width:100%;white-space:normal}
+  .csv-actions{width:100%}
+  .csv-actions .btn{flex:1}
+  .session-history-row{padding:14px}
+  .students-table .student-address{max-width:none;font-size:13px;line-height:1.7}
+}

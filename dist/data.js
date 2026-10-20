@@ -7,7 +7,8 @@ export const fold = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'
 export function createDemo() {
   const names = ['Nguyễn Minh Anh','Trần Gia Bảo','Lê Ngọc Hà','Phạm Đức Huy','Hoàng Khánh Linh','Vũ Tuấn Kiệt','Đặng Phương Nhi','Bùi Quang Minh','Đỗ Bảo Ngọc','Ngô Nhật Nam','Dương Thảo Vy','Lý Hải Đăng','Mai Anh Thư','Trịnh Hoàng Phúc','Đinh Hà My','Lâm Minh Khang','Phan Tú Uyên','Võ Trung Hiếu','Hồ Mai Chi','Cao Thành Đạt'];
   const parents = ['Nguyễn Thu Hương','Trần Hoàng Long','Lê Thị Thanh','Phạm Minh Tuấn','Hoàng Ngọc Lan','Vũ Thu Trang','Đặng Văn Hùng','Bùi Thanh Mai','Đỗ Anh Dũng','Ngô Hồng Nhung','Dương Minh Tâm','Lý Thanh Hà','Mai Quốc Huy','Trịnh Thúy An','Đinh Minh Đức','Lâm Bảo Châu','Phan Anh Thái','Võ Ngọc Ánh','Hồ Thanh Phương','Cao Văn Sơn'];
-  const students = names.map((name,i)=>({id:`s${i+1}`,name,phone:i%4===0?`000000${String(i+1).padStart(4,'0')}`:'',parent:parents[i],parentPhone:`000000${String(i+21).padStart(4,'0')}`,relation:i%3===0?'Bố':'Mẹ',note:'',demo:true}));
+  const streets=['Nguyễn Văn Cừ','Trần Hưng Đạo','Lê Văn Sỹ','Võ Thị Sáu','Điện Biên Phủ'];
+  const students = names.map((name,i)=>({id:`s${i+1}`,name,address:`${12+i*4} ${streets[i%streets.length]}, TP. Hồ Chí Minh`,phone:i%4===0?`000000${String(i+1).padStart(4,'0')}`:'',parent:parents[i],parentPhone:`000000${String(i+21).padStart(4,'0')}`,relation:i%3===0?'Bố':'Mẹ',note:'',demo:true}));
   const datePlus = n => {const d = new Date();d.setDate(d.getDate()+n);return localDate(d);};
   const topics = [
     {id:'t1',name:'Khám phá hệ Mặt Trời',subject:'Khoa học tự nhiên',color:'purple',description:'Cùng tìm hiểu các hành tinh và làm mô hình hệ Mặt Trời. Chuẩn bị giấy màu, kéo và bút vẽ.',due:datePlus(7),done:false},
@@ -23,17 +24,38 @@ export function createDemo() {
     {id:'g5',topicId:'t4',name:'Green buddies',members:['s2','s9','s16','s18','s19'],hostId:'s18',hostName:'Võ Ngọc Ánh',hostPhone:students[17].parentPhone,address:'20 Võ Thị Sáu, Phường Tân Định, TP. Hồ Chí Minh',date:datePlus(-3),start:'18:30',end:'20:00',note:'Cùng luyện tập bài thuyết trình.',done:true},
     {id:'g6',topicId:'t4',name:'Little gardeners',members:['s4','s8','s12','s15','s20'],hostId:'s20',hostName:'Cao Văn Sơn',hostPhone:students[19].parentPhone,address:'36 Điện Biên Phủ, Phường Gia Định, TP. Hồ Chí Minh',date:datePlus(-4),start:'19:00',end:'20:30',note:'Chuẩn bị tranh vẽ về ngôi trường xanh.',done:true}
   ];
-  return {version:1,className:'Lớp 6A1',students,topics,groups};
+  return normalizeData({version:1,className:'Lớp 6A1',students,topics,groups});
+}
+export function validDate(value) {
+  if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;
+  const d=new Date(value+'T12:00:00');return !Number.isNaN(d.valueOf())&&localDate(d)===value;
+}
+// Keep existing v1 backups and browser records; new fields are additive.
+export function normalizeData(data) {
+  data.students.forEach(s=>{s.address??='';});
+  data.groups.forEach(g=>{g.history??=[];g.sessionId??=uid();});
+  return data;
+}
+export function snapshotSession(g) {
+  return {id:g.sessionId||uid(),date:g.date,start:g.start,end:g.end,note:g.note,done:g.done,
+    hostId:g.hostId,hostName:g.hostName,hostPhone:g.hostPhone,address:g.address,members:[...g.members]};
+}
+export function allSessions(data) {
+  return data.groups.flatMap(g=>[
+    ...(g.history||[]).map((h,i)=>({...g,...h,id:g.id,sessionId:h.id,archived:true,sessionNumber:i+1})),
+    {...g,archived:false,sessionNumber:(g.history||[]).length+1}
+  ]);
 }
 export function validateData(x) {
   if(!x || x.version!==1 || typeof x.className!=='string' || !x.className.trim() || x.className.length>80) return false;
   if(!['students','topics','groups'].every(k=>Array.isArray(x[k]) && x[k].length<=5000)) return false;
   const text = (v,max=3000)=>typeof v==='string' && v.length<=max;
-  const date = v=>text(v,10)&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(new Date(v+'T12:00:00').valueOf());
+  const date = validDate;
   const time = v=>typeof v==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(v);
   const unique = arr=>new Set(arr.map(v=>v.id)).size===arr.length;
-  if(!['students','topics','groups'].every(k=>unique(x[k]) && x[k].every(v=>v && text(v.id,100) && v.id)))return false;
-  if(!x.students.every(s=>['name','phone','parent','parentPhone','relation','note'].every(k=>text(s[k])) && s.name.trim() && s.parent.trim()))return false;
+  if(!['students','topics','groups'].every(k=>x[k].every(v=>v && text(v.id,100) && v.id) && unique(x[k])))return false;
+  if(!x.students.every(s=>['name','phone','parent','parentPhone','relation','note'].every(k=>text(s[k])) && s.name.trim() && s.parent.trim() && (s.address===undefined||text(s.address))))return false;
   if(!x.topics.every(t=>['name','subject','description'].every(k=>text(t[k])) && t.name.trim() && ['purple','orange','blue','green','pink'].includes(t.color) && date(t.due) && typeof t.done==='boolean'))return false;
-  return x.groups.every(g=>['name','hostId','hostName','hostPhone','address','note','topicId'].every(k=>text(g[k])) && g.name.trim() && x.topics.some(t=>t.id===g.topicId) && Array.isArray(g.members) && g.members.length>0 && new Set(g.members).size===g.members.length && g.members.every(id=>x.students.some(s=>s.id===id)) && (!g.hostId||g.members.includes(g.hostId)) && date(g.date) && time(g.start) && time(g.end) && g.start<g.end && typeof g.done==='boolean');
+  const sessionValid=s=>s&&['hostId','hostName','hostPhone','address','note'].every(k=>text(s[k]))&&Array.isArray(s.members)&&s.members.length>0&&s.members.every(id=>text(id,100))&&date(s.date)&&time(s.start)&&time(s.end)&&s.start<s.end&&typeof s.done==='boolean';
+  return x.groups.every(g=>sessionValid(g)&&text(g.name)&&g.name.trim()&&text(g.topicId)&&x.topics.some(t=>t.id===g.topicId)&&new Set(g.members).size===g.members.length&&g.members.every(id=>x.students.some(s=>s.id===id))&&(!g.hostId||g.members.includes(g.hostId))&&(g.sessionId===undefined||(text(g.sessionId,100)&&g.sessionId))&&(g.history===undefined||(Array.isArray(g.history)&&g.history.length<=1000&&g.history.every(h=>sessionValid(h)&&text(h.id,100)&&h.id)&&unique(g.history)&&!g.history.some(h=>h.id===g.sessionId))));
 }
