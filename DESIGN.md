@@ -33,7 +33,7 @@ Trang đăng nhập dùng tên Học Nhóm, số điện thoại/email admin, m�
 
 ## Giao diện tiết chế
 
-Hướng được chọn: nền trắng/xám sáng, xanh ngọc là màu nhấn chính; màu môn học chỉ hiện ở nhãn, biểu tượng chuyên đề và dấu sự kiện lịch. Menu dùng một trạng thái xanh ngọc nhạt khi đang chọn. Thẻ lớp, số liệu, hồ sơ, lịch và form giữ nền trung tính, đường viền nhẹ; không chia màu theo trang hoặc theo thứ tự thẻ.
+Hướng được chọn: nền trắng/xám sáng, xanh ngọc là màu nhấn chính; màu môn học xuất hiện nhẹ trên nền/viền thẻ chuyên đề, các buổi học thuộc chuyên đề đó, nhãn và dấu sự kiện lịch. Sidebar, header và thanh điều hướng mobile cùng nền xanh ngọc rất nhạt #edf5f1; menu đang chọn dùng sắc xanh rõ hơn. Thẻ lớp, số liệu, hồ sơ, lịch và form giữ nền trung tính, đường viền nhẹ; không chia màu theo trang hoặc theo thứ tự thẻ.
 
 Người dùng là phụ huynh cần tìm nhanh lịch, chủ nhà, liên hệ và danh sách con trong lớp. Bản sắc sổ lớp học thể hiện qua tên lớp luôn hiện, lịch tháng cạnh buổi học, thời gian và chủ nhà trên thẻ, lịch sử từng buổi và nhãn môn học. Giữ Be Vietnam Pro để đọc tiếng Việt rõ; phân cấp bằng cỡ/độ đậm chữ, khoảng cách và nền sắc độ gần nhau.
 
