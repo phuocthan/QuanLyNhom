@@ -1,0 +1,8 @@
+# Local agent and hosting configuration
+.agents/
+.openai/
+
+# Local environment secrets
+.env
+.env.*
+!.env.example
