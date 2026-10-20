@@ -1,8 +1,17 @@
-# Local agent and hosting configuration
+# Local agent configuration
 .agents/
-.openai/
+
+# Hosting manifest is tracked; local credentials and runtime state are not
+.openai/*
+!.openai/hosting.json
 
 # Local environment secrets
 .env
 .env.*
 !.env.example
+
+node_modules/
+artifacts/
+__pycache__/
+*.tar.gz
+*.tgz

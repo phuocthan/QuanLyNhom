@@ -1,0 +1,12 @@
+{
+  "name": "cung-hoc",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Quản lý học nhóm cho học sinh và phụ huynh",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "start": "node scripts/serve.mjs",
+    "check": "node --check dist/app.js && node --check dist/data.js"
+  }
+}
