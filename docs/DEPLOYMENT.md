@@ -8,9 +8,9 @@
 - Volume: `49329e99-28e3-4ed4-a24b-7e35fc08c049`, mount `/data`, tách khỏi SangKienKn.
 - Build: `Dockerfile`, Node 24, không có thư viện runtime cần cài.
 - Start: `node server/index.mjs`; port8080, healthcheck `/api/health`, một replica, không cho hai deployment ghi SQLite cùng lúc.
-- Website: https://quanlynhom-production.up.railway.app.
+- Website: https://hoc-nhom.up.railway.app.
 
-Đặt `APP_PUBLIC_URL=https://quanlynhom-production.up.railway.app` khớp tên miền người dùng truy cập để tránh lỗi kiểm tra Origin. Nếu không đặt, server dùng `RAILWAY_PUBLIC_DOMAIN` của Railway; vẫn kiểm tra cùng nguồn và CSRF.
+Đặt `APP_PUBLIC_URL=https://hoc-nhom.up.railway.app` khớp tên miền người dùng truy cập để tránh lỗi kiểm tra Origin. Nếu không đặt, server dùng `RAILWAY_PUBLIC_DOMAIN` của Railway; vẫn kiểm tra cùng nguồn và CSRF.
 
 Các biến Railway được cấu hình riêng: `DATABASE_PATH=/data/cung-hoc.sqlite`, `NODE_ENV=production`, `PORT=8080`, `APP_PUBLIC_URL`, `SETUP_KEY`. Không ghi giá trị secret vào mã nguồn, đối số shell hoặc log. Database, WAL, `.env` và `.local` đều bị loại khỏi Git và Docker image.
 
