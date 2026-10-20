@@ -267,3 +267,8 @@ button,a,input,select{touch-action:manipulation}
 body:not(.cloud-mode) .class-picker{display:none}
 @media(max-width:1000px){.profile-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.profile-panel,.class-space{padding:20px}.class-grid{grid-template-columns:1fr}.profile-grid{gap:16px}.profile-panel .settings-actions .btn{flex:1 1 auto}.auth-card .auth-footnote{padding:12px}.class-space .btn{width:100%}}
+
+.header-logout{min-height:40px;padding:8px 12px;font-size:13px;white-space:nowrap;background:#fff0e8;border-color:#e4c4b2;color:#804225}
+.header-logout:hover{background:#fbe1d2;border-color:#c98e6d}
+body:not(.cloud-mode) .header-logout{display:none}
+@media(max-width:760px){.header-logout{padding:8px;font-size:12px;min-height:40px}.top-actions{gap:6px}.school-context{overflow-wrap:anywhere}.breadcrumb{min-width:0}}

@@ -93,6 +93,7 @@ try{
       await page.goto(base+'/#'+route);
       await page.locator('main h1').waitFor();
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${route} at ${width}`);
+      assert.equal(await page.locator('.header-logout').isVisible(),true);
     }
     await page.goto(base+'/#classes');
     await page.screenshot({path:`artifacts/hoc-nhom-classes-${width}.png`,fullPage:true});
@@ -100,7 +101,7 @@ try{
   await other.reload();
   await other.getByRole('heading',{name:'Hồ sơ cá nhân',exact:true}).waitFor();
   assert.equal(await other.locator('#profile-form [name=name]').inputValue(),'Phụ huynh đổi tên');
-  await other.getByRole('button',{name:'Đăng xuất',exact:true}).click();
+  await other.locator('.header-logout').click();
   await other.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
   await other.locator('#auth-email').fill('0912345678');await other.locator('#auth-password').fill('Parent-new-password-123');
   await other.getByRole('button',{name:'Đăng nhập',exact:true}).click();
