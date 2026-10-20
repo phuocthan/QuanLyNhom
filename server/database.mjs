@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { normalizePhone } from './auth.mjs';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -57,6 +59,15 @@ export function openDatabase(filename) {
       db.exec('COMMIT');
     }catch(error){db.exec('ROLLBACK');throw error;}
   }
+  if(!db.prepare('SELECT version FROM schema_migrations WHERE version=5').get()){
+    db.exec('BEGIN IMMEDIATE');
+    try{
+      // Earlier bulk accounts can contain several names; their students already exist.
+      const accounts=db.prepare("SELECT u.*,a.class_id FROM users u JOIN class_access a ON a.user_id=u.id WHERE u.role!='owner' AND u.student_name!='' AND length(u.student_name)<=100 AND instr(u.student_name,',')=0").all();
+      for(const account of accounts)syncAccountStudent(db,{studentName:account.student_name,parentName:account.parent_name,relationship:account.relationship,phone:account.phone},account.class_id,account.id);
+      db.exec("INSERT INTO schema_migrations VALUES(5,datetime('now')); COMMIT");
+    }catch(error){db.exec('ROLLBACK');db.close();throw error;}
+  }
   return db;
 }
 
@@ -85,21 +96,21 @@ export function saveState(db,input,revision,userId,classId='default') {
   const ids=data.groups.flatMap(g=>[g.sessionId,...g.history.map(h=>h.id)]);
   if(new Set(ids).size!==ids.length)return {error:'invalid',status:400};
   if(classId!=='default'){
-    db.exec('BEGIN IMMEDIATE');
+    db.exec('SAVEPOINT save_class_state');
     try{
       const row=db.prepare('SELECT revision FROM class_spaces WHERE id=?').get(classId);
-      if(!row){db.exec('ROLLBACK');return {error:'invalid',status:404};}
-      if(row.revision!==revision){db.exec('ROLLBACK');return {error:'conflict',status:409,revision:row.revision};}
+      if(!row){db.exec('ROLLBACK TO save_class_state; RELEASE save_class_state');return {error:'invalid',status:404};}
+      if(row.revision!==revision){db.exec('ROLLBACK TO save_class_state; RELEASE save_class_state');return {error:'conflict',status:409,revision:row.revision};}
       const updatedAt=new Date().toISOString(),next=revision+1;
       db.prepare('UPDATE class_spaces SET state=?,revision=?,updated_at=? WHERE id=?').run(JSON.stringify(data),next,updatedAt,classId);
       db.prepare('INSERT INTO audit_log(user_id,revision,created_at) VALUES(?,?,?)').run(userId,next,updatedAt);
-      db.exec('COMMIT');return {revision:next,updatedAt};
-    }catch(error){db.exec('ROLLBACK');throw error;}
+      db.exec('RELEASE save_class_state');return {revision:next,updatedAt};
+    }catch(error){db.exec('ROLLBACK TO save_class_state; RELEASE save_class_state');throw error;}
   }
-  db.exec('BEGIN IMMEDIATE');
+  db.exec('SAVEPOINT save_class_state');
   try{
     const current=db.prepare('SELECT revision FROM classroom WHERE id=1').get().revision;
-    if(current!==revision){db.exec('ROLLBACK');return {error:'conflict',status:409,revision:current};}
+    if(current!==revision){db.exec('ROLLBACK TO save_class_state; RELEASE save_class_state');return {error:'conflict',status:409,revision:current};}
     db.exec('DELETE FROM group_members; DELETE FROM study_sessions; DELETE FROM study_groups; DELETE FROM topics; DELETE FROM students;');
     const insertStudent=db.prepare('INSERT INTO students(id,position,record) VALUES(?,?,?)');
     data.students.forEach((s,i)=>insertStudent.run(s.id,i,JSON.stringify(s)));
@@ -117,6 +128,31 @@ export function saveState(db,input,revision,userId,classId='default') {
     const updatedAt=new Date().toISOString(),next=current+1;
     db.prepare('UPDATE classroom SET name=?,school_name=?,revision=?,updated_at=? WHERE id=1').run(data.className,data.schoolName,next,updatedAt);
     db.prepare('INSERT INTO audit_log(user_id,revision,created_at) VALUES(?,?,?)').run(userId,next,updatedAt);
-    db.exec('COMMIT');return {revision:next,updatedAt};
-  }catch(error){db.exec('ROLLBACK');throw error;}
+    db.exec('RELEASE save_class_state');return {revision:next,updatedAt};
+  }catch(error){db.exec('ROLLBACK TO save_class_state; RELEASE save_class_state');throw error;}
+}
+
+// Called inside the account transaction so both records succeed or roll back together.
+export function syncAccountStudent(db,profile,classId,userId){
+  const state=loadState(db,classId);
+  if(!state)throw Error('Class not found');
+  const key=value=>String(value||'').normalize('NFC').trim().replace(/\s+/g,' ').toLocaleLowerCase('vi');
+  const candidates=state.data.students.filter(s=>key(s.name)===key(profile.studentName));
+  let student=candidates.find(s=>normalizePhone(s.parentPhone)===profile.phone);
+  if(!student){
+    const incomplete=candidates.filter(s=>!s.parentPhone?.trim()&&(!s.parent?.trim()||!profile.parentName||key(s.parent)===key(profile.parentName)));
+    if(incomplete.length===1)student=incomplete[0];
+  }
+  const added=!student;
+  if(!student){student={id:randomUUID(),name:profile.studentName,phone:'',parent:'',parentPhone:profile.phone,relation:'',address:'',note:'',demo:false};state.data.students.push(student);}
+  const before=JSON.stringify(student);
+  student.parentPhone=profile.phone;
+  if(profile.parentName)student.parent=profile.parentName;
+  if(profile.relationship)student.relation=profile.relationship;
+  student.demo=false;
+  if(added||JSON.stringify(student)!==before){
+    const result=saveState(db,state.data,state.revision,userId,classId);
+    if(result.error)throw Error('Cannot save account student: '+result.error);
+  }
+  return {studentId:student.id,added};
 }

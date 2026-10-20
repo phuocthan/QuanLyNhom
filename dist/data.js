@@ -59,7 +59,7 @@ export function validateData(x) {
   const time = v=>typeof v==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(v);
   const unique = arr=>new Set(arr.map(v=>v.id)).size===arr.length;
   if(!['students','topics','groups'].every(k=>x[k].every(v=>v && text(v.id,100) && v.id) && unique(x[k])))return false;
-  if(!x.students.every(s=>['name','phone','parent','parentPhone','relation','note'].every(k=>text(s[k])) && s.name.trim() && s.parent.trim() && (s.address===undefined||text(s.address))))return false;
+  if(!x.students.every(s=>['name','phone','parent','parentPhone','relation','note'].every(k=>text(s[k])) && s.name.trim() && (s.address===undefined||text(s.address))))return false;
   if(!x.topics.every(t=>['name','subject','description'].every(k=>text(t[k])) && t.name.trim() && ['purple','orange','blue','green','pink'].includes(t.color) && date(t.due) && typeof t.done==='boolean'))return false;
   const sessionValid=s=>s&&['hostId','hostName','hostPhone','address','note'].every(k=>text(s[k]))&&Array.isArray(s.members)&&s.members.length>0&&s.members.every(id=>text(id,100))&&date(s.date)&&time(s.start)&&time(s.end)&&s.start<s.end&&typeof s.done==='boolean';
   return x.groups.every(g=>sessionValid(g)&&text(g.name)&&g.name.trim()&&text(g.topicId)&&x.topics.some(t=>t.id===g.topicId)&&new Set(g.members).size===g.members.length&&g.members.every(id=>x.students.some(s=>s.id===id))&&(!g.hostId||g.members.includes(g.hostId))&&(g.sessionId===undefined||(text(g.sessionId,100)&&g.sessionId))&&(g.history===undefined||(Array.isArray(g.history)&&g.history.length<=1000&&g.history.every(h=>sessionValid(h)&&text(h.id,100)&&h.id)&&unique(g.history)&&!g.history.some(h=>h.id===g.sessionId))));

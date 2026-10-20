@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { openDatabase, loadState, saveState, emptyClassroom } from './database.mjs';
+import { openDatabase, syncAccountStudent, loadState, saveState, emptyClassroom } from './database.mjs';
 import { hashPassword, verifyPassword, createSession, readSession, publicUser, sessionCookie, safeEqual, normalizePhone } from './auth.mjs';
 
 const ROOT=fileURLToPath(new URL('../dist/',import.meta.url));
@@ -117,7 +117,7 @@ export function createApp(config={}) {
         const relationship=input.relationship===undefined?'':typeof input.relationship==='string'?input.relationship.trim():null;
         if(!studentName||studentName.length>100||parentName===null||parentName.length>100||relationship===null||relationship.length>80||!phone||!['editor','viewer'].includes(input.role)||!classIds.length||classIds.some(id=>typeof id!=='string'||!db.prepare('SELECT 1 FROM class_spaces WHERE id=?').get(id)))return json(res,400,{error:'Nhập họ tên học sinh, số điện thoại phụ huynh hợp lệ và chọn lớp. Tên tối đa 100 ký tự, mối quan hệ tối đa 80 ký tự.'});
         const hash=await hashPassword('12345678'),id=randomUUID(),name=parentName||'PH của '+studentName;
-        db.exec('BEGIN IMMEDIATE');try{db.prepare('INSERT INTO users(id,email,name,password_hash,role,created_at,phone,must_change_password,student_name,parent_name,relationship) VALUES(?,?,?,?,?,?,?,1,?,?,?)').run(id,phone+'@phone.internal',name,hash,input.role,new Date().toISOString(),phone,studentName,parentName,relationship);for(const target of classIds)db.prepare('INSERT INTO class_access VALUES(?,?)').run(id,target);db.exec('COMMIT');}catch(error){db.exec('ROLLBACK');if(error.message.includes('UNIQUE'))return json(res,409,{error:'Số điện thoại này đã có tài khoản. Hãy cập nhật quyền lớp cho tài khoản hiện có.'});throw error;}return json(res,201,{ok:true});
+        db.exec('BEGIN IMMEDIATE');try{db.prepare('INSERT INTO users(id,email,name,password_hash,role,created_at,phone,must_change_password,student_name,parent_name,relationship) VALUES(?,?,?,?,?,?,?,1,?,?,?)').run(id,phone+'@phone.internal',name,hash,input.role,new Date().toISOString(),phone,studentName,parentName,relationship);for(const target of classIds){db.prepare('INSERT INTO class_access VALUES(?,?)').run(id,target);syncAccountStudent(db,{studentName,parentName,relationship,phone},target,user.id);}db.exec('COMMIT');}catch(error){db.exec('ROLLBACK');if(error.message.includes('UNIQUE'))return json(res,409,{error:'Số điện thoại này đã có tài khoản. Hãy cập nhật quyền lớp cho tài khoản hiện có.'});throw error;}return json(res,201,{ok:true});
       }
       if(url.pathname==='/api/users/from-students'&&req.method==='POST'&&user.role==='owner'){
         if(!db.prepare('SELECT 1 FROM class_spaces WHERE id=?').get(classId))return json(res,404,{error:'Không tìm thấy lớp.'});

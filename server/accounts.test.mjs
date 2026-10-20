@@ -64,6 +64,11 @@ test('class isolation, phone accounts, forced password change, grants, profile a
     for(const patch of [{studentName:''},{studentName:' '.repeat(3)},{parentName:42},{relationship:'x'.repeat(81)},{classIds:[]},{classIds:['missing']},{phone:'123'}])assert.equal((await request('/users','POST',{...requiredOnly,...patch},owner)).status,400);
     assert.equal((await request('/users','POST',requiredOnly,owner)).status,201);
     assert.equal((await request('/users','POST',requiredOnly,owner)).status,409);
+    const enrolled=(await request(route,'GET',undefined,owner)).body;
+    assert.equal(enrolled.data.students.length,2);assert.equal(enrolled.data.students[1].name,requiredOnly.studentName);
+    assert.equal(enrolled.data.students[1].parentPhone,requiredOnly.phone);assert.equal(enrolled.data.students[1].parent,'');
+    assert.equal((await request('/state','GET',undefined,owner)).body.data.students.length,20);
+    assert.equal((await request(route,'PUT',{data:enrolled.data,revision:1},owner)).status,409);
     const manual=(await request('/users','GET',undefined,owner)).body.users.find(u=>u.phone===requiredOnly.phone);
     assert.equal(manual.studentName,'Nguyễn Minh Anh');assert.equal(manual.parentName,'');assert.equal(manual.relationship,'');assert.deepEqual(manual.classIds,[classId]);
     const manualLogin=await request('/auth/login','POST',{username:requiredOnly.phone,password:'12345678'});
@@ -75,6 +80,7 @@ test('class isolation, phone accounts, forced password change, grants, profile a
     assert.equal((await request('/users','POST',named,owner)).status,201);
     const namedUser=(await request('/users','GET',undefined,owner)).body.users.find(u=>u.phone===named.phone);
     assert.equal(namedUser.parentName,'Nguyễn Thu Hà');assert.equal(namedUser.name,'Nguyễn Thu Hà');assert.equal(namedUser.relationship,'Mẹ');
+    assert.equal((await request(route,'GET',undefined,owner)).body.data.students.length,3);
     assert.equal(app.db.prepare('SELECT student_name FROM users WHERE id=?').get(namedUser.id).student_name,named.studentName);
     const bulk=await request('/users/from-students','POST',{},owner);
     assert.equal(bulk.body.created,1);assert.equal(bulk.body.skipped,18);
@@ -102,8 +108,8 @@ test('class isolation, phone accounts, forced password change, grants, profile a
     assert.equal((await request('/state','GET',undefined,parent)).status,403);
     const editorData=(await request(route,'GET',undefined,parent)).body;
     editorData.data.students[0].name='Tên mới';
-    assert.equal((await request(route,'PUT',{data:editorData.data,revision:1},parent)).status,200);
-    assert.equal((await request(route,'PUT',{data:{...editorData.data,className:'Đổi trái phép'},revision:2},parent)).status,403);
+    assert.equal((await request(route,'PUT',{data:editorData.data,revision:editorData.revision},parent)).status,200);
+    assert.equal((await request(route,'PUT',{data:{...editorData.data,className:'Đổi trái phép'},revision:editorData.revision+1},parent)).status,403);
     assert.equal((await request('/users/access','PUT',{id:user.id,classIds:['missing'],role:'viewer'},owner)).status,400);
     assert.equal((await request('/classes','GET',undefined,parent)).body.classes[0].id,classId);
     const profile=await request('/profile','PUT',{name:'Admin mới',email:'admin-new@example.test',phone:'0975163361'},owner);
@@ -129,4 +135,54 @@ test('production accepts the configured HTTPS origin behind a proxy and rejects 
       assert.equal(response.status,status);
     }
   }finally{await new Promise(resolve=>app.server.close(resolve));app.db.close();}
+});
+
+test('account enrollment reuses student records, preserves details and rolls back on failure',async()=>{
+  const app=createApp({databasePath:':memory:',setupKey:'test'});
+  app.server.listen(0,'127.0.0.1');await once(app.server,'listening');
+  const base=`http://127.0.0.1:${app.server.address().port}`;
+  let auth={};
+  async function request(route,method='GET',data){
+    const response=await fetch(base+'/api'+route,{method,headers:{Origin:base,'Content-Type':'application/json',...auth},...(data===undefined?{}:{body:JSON.stringify(data)})});
+    return {status:response.status,body:await response.json(),cookie:response.headers.get('set-cookie')?.split(';')[0]};
+  }
+  try{
+    const setup=await request('/auth/setup','POST',{name:'Admin',email:'enroll@example.test',password:'Admin-test-password',setupKey:'test'});
+    auth={Cookie:setup.cookie,'X-CSRF-Token':setup.body.csrfToken};
+    const data=createDemo(),original=data.students[0];original.parentPhone='+84 912 345 678';original.demo=false;
+    assert.equal((await request('/state','PUT',{data,revision:0})).status,200);
+    const profile={studentName:original.name.toUpperCase(),phone:'0912345678',role:'viewer',parentName:'Tên phụ huynh mới',relationship:'Mẹ',classIds:['default']};
+    assert.equal((await request('/users','POST',profile)).status,201);
+    let state=(await request('/state')).body;
+    assert.equal(state.data.students.length,20);
+    assert.equal(state.data.students[0].id,original.id);assert.equal(state.data.students[0].address,original.address);
+    assert.equal(state.data.students[0].parent,profile.parentName);assert.equal(state.data.students[0].relation,'Mẹ');
+    assert.deepEqual(state.data.groups,data.groups);
+    const before=structuredClone(state);
+    app.db.exec("CREATE TRIGGER fail_enrollment BEFORE INSERT ON students BEGIN SELECT RAISE(ABORT,'test enrollment failure'); END;");
+    assert.equal((await request('/users','POST',{...profile,phone:'0901234569',studentName:'Không được lưu'})).status,500);
+    assert.equal(app.db.prepare('SELECT count(*) AS n FROM users WHERE phone=?').get('0901234569').n,0);
+    assert.deepEqual((await request('/state')).body,before);
+    app.db.exec('DROP TRIGGER fail_enrollment');
+    assert.equal((await request('/users','POST',{...profile,phone:'0901234569',studentName:'Học sinh mới',parentName:'',relationship:''})).status,201);
+    state=(await request('/state')).body;assert.equal(state.data.students.length,21);
+    assert.equal(state.data.students[20].parent,'');assert.equal(state.data.students[20].phone,'');assert.equal(state.data.students[20].parentPhone,'0901234569');
+  }finally{await new Promise(resolve=>app.server.close(resolve));app.db.close();}
+});
+
+test('one-time backfill enrolls earlier manual accounts without duplicating or restoring later removals',async()=>{
+  const directory=await mkdtemp(path.join(tmpdir(),'hoc-nhom-enroll-')),filename=path.join(directory,'test.sqlite');
+  let db=openDatabase(filename);
+  try{
+    db.exec("DELETE FROM schema_migrations WHERE version=5");
+    db.prepare("INSERT INTO users(id,email,name,password_hash,role,created_at,phone,student_name,parent_name,relationship) VALUES(?,?,?,?,?,?,?,?,?,?)").run('prior-parent','prior@phone.internal','PH','keep-hash','viewer','2026-10-20','0912345678','Học sinh vừa tạo','Phụ huynh cũ','Bố');
+    db.prepare('INSERT INTO class_access VALUES(?,?)').run('prior-parent','default');
+    db.close();db=openDatabase(filename);
+    const state=loadState(db);assert.equal(state.data.students.length,1);
+    assert.equal(state.data.students[0].name,'Học sinh vừa tạo');assert.equal(state.data.students[0].parent,'Phụ huynh cũ');assert.equal(state.data.students[0].relation,'Bố');
+    assert.equal(db.prepare('SELECT password_hash FROM users WHERE id=?').get('prior-parent').password_hash,'keep-hash');
+    db.close();db=openDatabase(filename);assert.equal(loadState(db).data.students.length,1);
+    db.exec('DELETE FROM students');db.close();db=openDatabase(filename);
+    assert.equal(loadState(db).data.students.length,0);
+  }finally{db.close();await rm(directory,{recursive:true,force:true});}
 });
