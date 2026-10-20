@@ -28,8 +28,11 @@ test('migration from the deployed schema preserves the class, accounts and sessi
     assert.equal(db.prepare('SELECT count(*) AS n FROM auth_sessions').get().n,1);
     assert.equal(db.prepare('SELECT class_id FROM class_access WHERE user_id=?').get('old-parent').class_id,'default');
     assert.equal(db.prepare('SELECT count(*) AS n FROM class_spaces').get().n,1);
+    assert.equal(db.prepare('SELECT parent_name FROM users WHERE id=?').get('old-parent').parent_name,'PH cũ');
+    db.prepare('UPDATE users SET student_name=?,relationship=? WHERE id=?').run('Học sinh đã lưu','Bố','old-parent');
     db.close();db=openDatabase(filename);
     assert.equal(db.prepare('SELECT count(*) AS n FROM class_access').get().n,1);
+    assert.equal(db.prepare('SELECT student_name,relationship FROM users WHERE id=?').get('old-parent').student_name,'Học sinh đã lưu');
   }finally{db.close();await rm(directory,{recursive:true,force:true});}
 });
 
@@ -57,6 +60,22 @@ test('class isolation, phone accounts, forced password change, grants, profile a
     assert.equal((await request('/state','GET',undefined,owner)).body.data.students.length,20);
     assert.equal((await request(route,'PUT',{data:blank.data,revision:0},owner)).status,409);
     assert.equal((await request('/users','POST',{name:'Sai số',phone:'123',role:'viewer'},owner)).status,400);
+    const requiredOnly={studentName:'Nguyễn Minh Anh',phone:'0901234567',role:'viewer',classIds:[classId]};
+    for(const patch of [{studentName:''},{studentName:' '.repeat(3)},{parentName:42},{relationship:'x'.repeat(81)},{classIds:[]},{classIds:['missing']},{phone:'123'}])assert.equal((await request('/users','POST',{...requiredOnly,...patch},owner)).status,400);
+    assert.equal((await request('/users','POST',requiredOnly,owner)).status,201);
+    assert.equal((await request('/users','POST',requiredOnly,owner)).status,409);
+    const manual=(await request('/users','GET',undefined,owner)).body.users.find(u=>u.phone===requiredOnly.phone);
+    assert.equal(manual.studentName,'Nguyễn Minh Anh');assert.equal(manual.parentName,'');assert.equal(manual.relationship,'');assert.deepEqual(manual.classIds,[classId]);
+    const manualLogin=await request('/auth/login','POST',{username:requiredOnly.phone,password:'12345678'});
+    assert.equal(manualLogin.status,200);assert.equal(manualLogin.body.user.mustChangePassword,true);
+    assert.equal(manualLogin.body.user.name,'PH của Nguyễn Minh Anh');
+    assert.equal((await request('/auth/session','GET',undefined,session(manualLogin))).body.user.studentName,'Nguyễn Minh Anh');
+    assert.equal((await request(route,'GET',undefined,session(manualLogin))).status,403);
+    const named={...requiredOnly,phone:'0901234568',parentName:'  Nguyễn Thu Hà  ',relationship:'  Mẹ  '};
+    assert.equal((await request('/users','POST',named,owner)).status,201);
+    const namedUser=(await request('/users','GET',undefined,owner)).body.users.find(u=>u.phone===named.phone);
+    assert.equal(namedUser.parentName,'Nguyễn Thu Hà');assert.equal(namedUser.name,'Nguyễn Thu Hà');assert.equal(namedUser.relationship,'Mẹ');
+    assert.equal(app.db.prepare('SELECT student_name FROM users WHERE id=?').get(namedUser.id).student_name,named.studentName);
     const bulk=await request('/users/from-students','POST',{},owner);
     assert.equal(bulk.body.created,1);assert.equal(bulk.body.skipped,18);
     assert.equal((await request('/users/from-students','POST',{},owner)).body.created,0);

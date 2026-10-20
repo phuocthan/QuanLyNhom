@@ -4,6 +4,8 @@
 
 Bản chính dùng **Node.js 24 + SQLite riêng trên Railway**, có đăng nhập và đồng bộ nhiều thiết bị. Hướng dẫn triển khai, tài khoản và chuyển dữ liệu cũ: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
+Khi tạo tài khoản phụ huynh, admin nhập **Họ tên học sinh**, **Số điện thoại phụ huynh** và chọn **Lớp**. **Họ tên phụ huynh** và **Mối quan hệ** không bắt buộc. Số điện thoại dùng để đăng nhập; mật khẩu ban đầu luôn là `12345678`, phụ huynh phải đổi mật khẩu trong lần đăng nhập đầu tiên.
+
 ## Chạy trên máy
 
 Yêu cầu Node.js 24 trở lên. Không cần cài thư viện runtime: backend dùng HTTP, crypto và SQLite tích hợp trong Node.

@@ -39,11 +39,21 @@ with sync_playwright() as p:
     page.get_by_role('button',name='Dữ liệu & cài đặt',exact=True).click()
     page.get_by_role('button',name='Quản lý tài khoản phụ huynh',exact=True).click()
     form=page.locator('#user-form')
-    form.locator('[name=name]').fill('Phụ huynh xem')
+    for width in [1440,390,320]:
+        page.set_viewport_size({'width':width,'height':900})
+        form.scroll_into_view_if_needed()
+        assert not page.evaluate('document.documentElement.scrollWidth>innerWidth')
+        assert not page.locator('#modal').evaluate('(el)=>el.scrollWidth>el.clientWidth')
+        page.screenshot(path=str(OUT/f'account-create-{width}.png'),full_page=True)
+    page.set_viewport_size({'width':1440,'height':1050})
+    assert form.locator('[name=parentName]').get_attribute('required') is None
+    assert form.locator('[name=relationship]').get_attribute('required') is None
+    form.locator('[name=studentName]').fill('Học sinh thử nghiệm')
     form.locator('[name=phone]').fill('0912345678')
     form.locator('[name=role]').select_option('viewer')
     form.get_by_role('button',name='Tạo tài khoản',exact=True).click()
     expect(page.locator('.account-list')).to_contain_text('0912345678')
+    expect(page.locator('.account-list')).to_contain_text('Học sinh thử nghiệm')
     page.get_by_role('button',name='Đóng',exact=True).first.click()
     print('PASS CSV persists in SQLite without localStorage; parent account creation')
 

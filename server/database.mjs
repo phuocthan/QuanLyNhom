@@ -46,6 +46,17 @@ export function openDatabase(filename) {
       db.exec('COMMIT');
     }catch(error){db.exec('ROLLBACK');throw error;}
   }
+  if(!db.prepare('SELECT version FROM schema_migrations WHERE version=4').get()){
+    db.exec('BEGIN IMMEDIATE');
+    try{
+      db.exec(`ALTER TABLE users ADD COLUMN student_name TEXT NOT NULL DEFAULT '';
+        ALTER TABLE users ADD COLUMN parent_name TEXT NOT NULL DEFAULT '';
+        ALTER TABLE users ADD COLUMN relationship TEXT NOT NULL DEFAULT '';
+        UPDATE users SET parent_name=name WHERE role!='owner';
+        INSERT INTO schema_migrations VALUES(4,datetime('now'));`);
+      db.exec('COMMIT');
+    }catch(error){db.exec('ROLLBACK');throw error;}
+  }
   return db;
 }
 

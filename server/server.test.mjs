@@ -37,7 +37,7 @@ test('private SQLite API: setup, auth, role enforcement, CSRF, revision conflict
     assert.equal((await request('/api/state','PUT',payload,owner)).status,409);
     assert.equal((await request('/api/state','PUT',{data:{},revision:1},owner)).status,400);
     state=await request('/api/state','GET',undefined,owner);assert.deepEqual(state.body.data,data);
-    const viewer={name:'Viewer',phone:'0912345678',role:'viewer'};
+    const viewer={studentName:'Học sinh Viewer',phone:'0912345678',role:'viewer'};
     assert.equal((await request('/api/users','POST',viewer,owner)).status,201);
     const firstLogin=await request('/api/auth/login','POST',{username:viewer.phone,password:'12345678'});
     const firstAccount={cookie:firstLogin.cookie,csrf:firstLogin.body.csrfToken};
