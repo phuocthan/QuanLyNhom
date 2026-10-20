@@ -1,4 +1,4 @@
-# Cùng học
+# Học Nhóm
 
 Ứng dụng cho phụ huynh quản lý các nhóm học có thành viên thay đổi theo chuyên đề.
 
@@ -18,7 +18,7 @@
            | Chuyên đề đang thực hiện | Hỗ trợ phụ huynh
 ```
 
-Rà kế hoạch: tránh trang landing, tránh biểu đồ và ảnh trang trí không giúp quản lý học nhóm. Màu chuyên đề có ý nghĩa phân biệt môn; số liệu chỉ mô tả dữ liệu thực tế. Bản giả lập lưu localStorage, có xuất/nhập JSON, không ngụ ý đồng bộ giữa phụ huynh hoặc thiết bị.
+Rà kế hoạch: tránh trang landing, tránh biểu đồ và ảnh trang trí không giúp quản lý học nhóm. Màu chuyên đề có ý nghĩa phân biệt môn; số liệu chỉ mô tả dữ liệu thực tế. Bản static cũ lưu localStorage. Bản Railway dùng đăng nhập và SQLite đồng bộ nhiều thiết bị; mỗi lớp có dữ liệu riêng và phụ huynh chỉ truy cập lớp được cấp. Có xuất/nhập JSON theo lớp.
 
 ## Skills đã tìm trên skills.sh
 
@@ -26,3 +26,9 @@ Rà kế hoạch: tránh trang landing, tránh biểu đồ và ảnh trang trí
 - https://skills.sh/anthropics/skills/webapp-testing (cài trong `.agents/skills/webapp-testing`)
 
 Áp dụng biểu mẫu có nhãn, focus rõ, điều hướng bàn phím, thao tác cảm ứng, kiểm tra trình duyệt desktop/mobile và các luồng tạo, sửa, tìm, lưu dữ liệu.
+
+## Tài khoản và nhiều lớp
+
+Trang đăng nhập dùng tên Học Nhóm, số điện thoại/email admin, mật khẩu và liên hệ Zalo admin 0975 163 361. Phụ huynh được cấp mật khẩu lần đầu 12345678 và phải đổi trước khi vào lớp. Hồ sơ admin có thông tin cá nhân, đổi mật khẩu và lối vào quản lý lớp/phụ huynh. Lớp được chọn ở sidebar desktop hoặc tên lớp trong header mobile.
+
+Các khung dùng nền có sắc độ khác nhau: sidebar và hồ sơ xanh ngọc, header và đổi mật khẩu vàng kem, bảng học sinh xanh lam. Thẻ lớp xen các tông xanh ngọc/xanh lam/vàng để phân biệt; luôn có tên lớp và nhãn đang xem. Giữ màu môn học trên chuyên đề/nhóm/lịch.

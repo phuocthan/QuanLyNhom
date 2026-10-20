@@ -1,6 +1,6 @@
-# Cùng học
+# Học Nhóm
 
-Ứng dụng web tiếng Việt cho **Lớp 7/14, THCS Tây Sơn - Đà Nẵng**, dùng trên điện thoại và máy tính để quản lý học nhóm.
+Ứng dụng web tiếng Việt quản lý nhiều lớp và nhóm học trên điện thoại, máy tính. Lớp hiện có **7/14, THCS Tây Sơn - Đà Nẵng** được giữ nguyên khi nâng cấp.
 
 Bản chính dùng **Node.js 24 + SQLite riêng trên Railway**, có đăng nhập và đồng bộ nhiều thiết bị. Hướng dẫn triển khai, tài khoản và chuyển dữ liệu cũ: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
@@ -13,6 +13,16 @@ npm run dev
 ```
 
 Mở http://localhost:5173 và tạo tài khoản quản trị lần đầu. Database local ở `.local/cung-hoc.sqlite`, tách biệt với Railway. `npm start` chạy server thông thường; `npm run check` kiểm tra cú pháp, `npm test` kiểm thử API/database. `npm run dev:static` chỉ chạy bản localStorage cũ.
+
+## Tài khoản và lớp học
+
+- Admin đăng nhập bằng email; vào **Hồ sơ admin** để cập nhật tên, email, số điện thoại hoặc đổi mật khẩu. Sau khi lưu số điện thoại, admin cũng có thể đăng nhập bằng số đó.
+- **Quản lý lớp → Thêm lớp** tạo lớp rỗng, có danh sách học sinh, chuyên đề, nhóm và lịch riêng. Chọn lớp ở thanh bên hoặc nhấn tên lớp trên đầu trang điện thoại. Thêm học sinh thủ công hoặc nhập CSV trong lớp đã chọn.
+- **Hồ sơ admin → Quản lý phụ huynh** để thêm phụ huynh, chọn các lớp được truy cập và quyền chỉ xem/cùng chỉnh sửa. **Cấp tài khoản từ danh sách lớp** đọc số điện thoại phụ huynh trong danh sách học sinh, bỏ qua số trống/sai/số giả lập. Trùng số đã có thì cấp thêm lớp và giữ nguyên mật khẩu.
+- Phụ huynh đăng nhập bằng số điện thoại (hỗ trợ chuẩn hóa +84), mật khẩu đầu tiên **12345678**. Bắt buộc đổi sang mật khẩu riêng ít nhất 8 ký tự trước khi đọc hoặc sửa dữ liệu; tải lại trang vẫn phải đổi. Admin có thể đặt lại mật khẩu, thao tác này kết thúc mọi phiên của phụ huynh.
+- Admin toàn quyền trên mọi lớp. Phụ huynh chỉ vào được lớp đã cấp; quyền chỉnh sửa không bao gồm quản lý tài khoản, tạo lớp hoặc đổi tên lớp/trường. Quyền xem/chỉnh sửa áp dụng cho tất cả lớp đã cấp của một tài khoản.
+- Trang đăng nhập có liên hệ [Zalo admin · 0975 163 361](https://zalo.me/0975163361).
+- Tài khoản email cũ và phiên đăng nhập được giữ khi migration; tài khoản phụ huynh mới dùng số điện thoại. Bản static cũ chỉ phục vụ xuất dữ liệu, không có quản lý nhiều lớp/tài khoản.
 
 ## Có thể làm gì?
 
@@ -37,6 +47,8 @@ Bản server mới khởi tạo lớp rỗng; chỉ nạp CSV, JSON hoặc dữ 
 SQLite trên Railway lưu tại `/data/cung-hoc.sqlite`, thuộc volume riêng. Các thiết bị đăng nhập đọc chung database; API kiểm tra revision và từ chối ghi đè dữ liệu mới từ thiết bị khác. Bản ChatGPT Sites cũ vẫn giữ localStorage để xuất dữ liệu: chọn **Xuất bản sao** ở bản cũ rồi **Nhập bản sao** ở bản Railway. Không thể tự đọc localStorage khác tên miền. Dùng JSON để giữ cả chuyên đề, nhóm và lịch sử; CSV chỉ chuyển danh sách học sinh.
 
 ## Kiểm thử
+
+Kiểm tra tài khoản/nhiều lớp bằng `npm test`; kiểm tra trình duyệt bằng `node scripts/test_accounts_ui.mjs` (cần Playwright và Chromium, có thể đặt `PLAYWRIGHT_CHANNEL=msedge` và `PLAYWRIGHT_MODULE` là đường dẫn module). Script tự chạy server với SQLite trong bộ nhớ, không truy cập Railway. Bao gồm tạo lớp, nhập CSV, cấp phụ huynh, đổi mật khẩu bắt buộc, profile, đăng nhập lại và giao diện 1440/768/390/320px.
 
 Kiểm thử giao diện bằng Python Playwright, theo skill `webapp-testing` được tìm trực tiếp trên skills.sh và cài tại `.agents/skills/webapp-testing`.
 

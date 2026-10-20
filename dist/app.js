@@ -1,6 +1,6 @@
 import { STORAGE_KEY, localDate, uid, fold, createDemo, validateData, normalizeData, validDate, snapshotSession, allSessions } from './data.js';
 import { parseStudentsCSV, studentKey } from './csv.js';
-import { connectCloud } from './cloud.js';
+import { connectCloud, passwordFields, changePassword } from './cloud.js';
 
 const paths = {
   home:'<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
@@ -42,6 +42,7 @@ const modal = $('#modal');
 const content = $('#modal-content');
 let storageFailed=false,loadFailed=false,hadStoredData=false;
 const cloud=window.CUNG_HOC_STORAGE==='server'?await connectCloud():null;
+if(cloud)document.body.classList.add('cloud-mode');
 let db;
 if(cloud)db=normalizeData(cloud.data);
 else try {const raw=localStorage.getItem(STORAGE_KEY);hadStoredData=!!raw; if(raw){const parsed=JSON.parse(raw);if(!validateData(parsed))throw Error('Dữ liệu không hợp lệ');db=normalizeData(parsed);}else db=createDemo();}catch {db=createDemo();loadFailed=true;}
@@ -95,6 +96,10 @@ function contacts(phone,name,small=false){
 function renderNav(){
   $('#nav').innerHTML=navigations.map(([id,label,ico])=>`<a data-section="${id}" class="nav-item ${page===id?'active':''}" href="#${id}" ${page===id?'aria-current="page"':''}>${icon(ico)}<span>${label}</span>${id==='students'?`<span class="nav-count">${db.students.length}</span>`:''}</a>`).join('');
   $('#mobile-nav').innerHTML=navigations.map(([id,label,ico])=>`<a data-section="${id}" href="#${id}" class="${page===id?'active':''}" ${page===id?'aria-current="page"':''}>${icon(ico)}<span>${id==='calendar'?'Lịch học':label}</span></a>`).join('');
+  if(cloud){
+    $('#nav').insertAdjacentHTML('beforeend',`<a class="nav-item ${page==='classes'?'active':''}" href="#classes">${icon('school')}<span>${cloud.user.role==='owner'?'Quản lý lớp':'Lớp của tôi'}</span></a><a class="nav-item ${page==='profile'?'active':''}" href="#profile">${icon('users')}<span>${cloud.user.role==='owner'?'Hồ sơ admin':'Hồ sơ cá nhân'}</span></a>`);
+    $('#class-switcher').innerHTML='<option disabled>Chọn lớp học</option>'+cloud.classes.map(c=>`<option value="${esc(c.id)}" ${c.id===cloud.classId?'selected':''}>${esc(c.id===cloud.classId?db.className:c.name)}</option>`).join('');
+  }
   $('#sidebar-class').textContent=db.className;$('#top-class').textContent=db.className;$('.class-symbol').textContent=db.className.replace(/^Lớp\s*/i,'');$('#sidebar-school').textContent=db.schoolName;$('#top-school').textContent=db.schoolName;
 }
 function heading(title,sub,action,label){return `<div class="page-heading"><div><h1>${esc(title)}</h1>${sub?`<p class="page-subtitle">${esc(sub)}</p>`:''}</div>${action?`<button class="btn primary" data-action="${action}" aria-label="${esc(label)}">${icon('plus')}<span>${esc(label)}</span></button>`:''}</div>`;}
@@ -159,14 +164,16 @@ function renderCalendar(){
 }
 function render(){
   renderNav();
-  if(page==='topics'&&routeId)renderTopicDetail(routeId);
+  if(page==='profile'&&cloud)renderProfile();
+  else if(page==='classes'&&cloud)renderClasses();
+  else if(page==='topics'&&routeId)renderTopicDetail(routeId);
   else if(page==='topics')renderTopics();else if(page==='groups')renderGroups();else if(page==='students')renderStudents();else if(page==='calendar')renderCalendar();else renderOverview();
   $$('.topbar [data-icon],.sidebar [data-icon]').forEach(n=>n.innerHTML=icon(n.dataset.icon));
-  if(cloud){updateCloudIndicator(cloud.busy?'Đang lưu…':storageFailed?'Chưa đồng bộ':'Đã đồng bộ');$('.sidebar-profile strong').textContent=cloud.user.name;$('.sidebar-profile small').textContent=cloud.user.role==='owner'?'Quản trị lớp học':cloud.user.role==='viewer'?'Chỉ xem':'Cùng chỉnh sửa';}
+  if(cloud){$('.profile-button').dataset.action='profile';$('.profile-button').setAttribute('aria-label','Mở hồ sơ cá nhân');$('.profile-button').textContent=initials(cloud.user.name);$('.sidebar-profile').setAttribute('data-action','profile');updateCloudIndicator(cloud.busy?'Đang lưu…':storageFailed?'Chưa đồng bộ':'Đã đồng bộ');$('.sidebar-profile strong').textContent=cloud.user.name;$('.sidebar-profile small').textContent=cloud.user.role==='owner'?'Quản trị lớp học':cloud.user.role==='viewer'?'Chỉ xem':'Cùng chỉnh sửa';}
 }
 function readRoute(){
   const [base,params='']=(location.hash.slice(1)||'overview').split('?');const [next,id='']=base.split('/');
-  const nextPage=navigations.some(n=>n[0]===next)?next:'overview';
+  const nextPage=(navigations.some(n=>n[0]===next)||(cloud&&['profile','classes'].includes(next)))?next:'overview';
   if(nextPage!==page){filter='active';query='';topicFilter='all';}
   page=nextPage;routeId=id;
   const routeParams=new URLSearchParams(params);
@@ -174,6 +181,7 @@ function readRoute(){
   query=routeParams.get('q')||'';topicFilter=routeParams.get('topic')||'all';
   if(page==='calendar'){const date=new URLSearchParams(params).get('date');if(date&&/^\d{4}-\d{2}-\d{2}$/.test(date)&&!Number.isNaN(dDate(date).valueOf())){selectedDate=date;const d=dDate(date);monthDate=new Date(d.getFullYear(),d.getMonth(),1);}}
   closeModal(true);render();
+  if(page==='classes'&&cloud)cloud.loadClasses().then(()=>{if(page==='classes')render();}).catch(error=>notify(error.message));
   if(page==='groups'&&routeId&&group(routeId))openGroupDetail(routeId);
 }
 
@@ -317,12 +325,29 @@ function commitCSVImport(){
 async function openUserManagement(){
   if(!cloud||cloud.user.role!=='owner')return;
   try{
-    const {users}=await cloud.request('/users');
-    showModal(modalHeader('Tài khoản phụ huynh','Chỉ người có tài khoản được cấp mới đọc được dữ liệu lớp.')+`<div class="modal-body"><div class="account-list">${users.map(u=>`<div class="account-row"><strong>${esc(u.name)}</strong><small>${esc(u.email)} · ${u.role==='owner'?'Quản trị':u.role==='viewer'?'Chỉ xem':'Cùng chỉnh sửa'}</small></div>`).join('')}</div><h3 class="account-form-title">Thêm tài khoản</h3><form id="user-form"><div class="form-error" role="alert"></div><div class="form-grid">${field('Tên phụ huynh','name','','text',true,true)}${field('Email','email','','email',true,true)}<div class="field full"><label for="f-password">Mật khẩu (ít nhất 12 ký tự)</label><input id="f-password" name="password" type="password" required minlength="12" maxlength="200" autocomplete="new-password"></div><div class="field full"><label for="f-role">Quyền truy cập</label><select id="f-role" name="role"><option value="viewer">Chỉ xem thông tin và liên hệ</option><option value="editor">Cùng chỉnh sửa dữ liệu lớp</option></select></div></div><button type="submit" class="btn primary auth-submit">Tạo tài khoản</button></form></div><div class="modal-footer"><button class="btn" data-action="close-modal">Đóng</button></div>`,'users');
+    await cloud.loadClasses();const {users}=await cloud.request('/users');
+    showModal(modalHeader('Tài khoản phụ huynh','Đăng nhập bằng số điện thoại. Mật khẩu lần đầu: 12345678; bắt buộc đổi sau khi đăng nhập.')+`<div class="modal-body"><div class="settings-notice">Sau khi nhập danh sách học sinh, có thể cấp tài khoản theo số điện thoại phụ huynh. Số trống, số giả lập và số sai định dạng sẽ được bỏ qua. Tài khoản đã có giữ nguyên mật khẩu.<button class="btn soft" data-action="parents-from-students">Cấp tài khoản từ danh sách lớp</button></div><div class="account-list">${users.map(u=>`<div class="account-row"><strong>${esc(u.name)}</strong><small>${esc(u.phone||u.email)} · ${u.role==='owner'?'Admin':u.role==='viewer'?'Chỉ xem':'Cùng chỉnh sửa'}${u.mustChangePassword?' · Chờ đổi mật khẩu':''}</small>${u.role!=='owner'?`<form class="access-form" data-id="${esc(u.id)}"><div class="field"><label>Quyền<select name="role"><option value="viewer" ${u.role==='viewer'?'selected':''}>Chỉ xem</option><option value="editor" ${u.role==='editor'?'selected':''}>Cùng chỉnh sửa</option></select></label></div><fieldset class="class-checks"><legend>Lớp được truy cập</legend>${classChecks(u.classIds)}</fieldset><button class="btn small" type="submit">Lưu quyền</button><button class="btn small danger" type="button" data-action="reset-parent-password" data-id="${esc(u.id)}">Đặt lại mật khẩu</button></form>`:''}</div>`).join('')}</div><h3 class="account-form-title">Thêm phụ huynh</h3><form id="user-form"><div class="form-error" role="alert"></div><div class="form-grid">${field('Tên phụ huynh','name','','text',true,true)}${field('Số điện thoại đăng nhập','phone','','tel',true,true)}<div class="field full"><label for="f-role">Quyền truy cập</label><select id="f-role" name="role"><option value="viewer">Chỉ xem thông tin và liên hệ</option><option value="editor">Cùng chỉnh sửa dữ liệu lớp</option></select></div><fieldset class="class-checks full"><legend>Lớp được truy cập</legend>${classChecks([cloud.classId])}</fieldset></div><button type="submit" class="btn primary auth-submit">Tạo tài khoản</button></form></div><div class="modal-footer"><button class="btn" data-action="close-modal">Đóng</button></div>`,'users');
   }catch(error){notify(error.message);}
 }
+function classChecks(selected){return cloud.classes.map(c=>`<label><input type="checkbox" name="classIds" value="${esc(c.id)}" ${selected.includes(c.id)?'checked':''}> ${esc(c.name)} · ${esc(c.schoolName)}</label>`).join('');}
+function renderProfile(){
+  const u=cloud.user,admin=u.role==='owner';
+  el.innerHTML=heading(admin?'Hồ sơ admin':'Hồ sơ cá nhân','Thông tin đăng nhập và quản lý tài khoản.')+`<div class="profile-grid"><section class="profile-panel"><div class="profile-title">${avatar(u.name)}<div><h2>${esc(u.name)}</h2><p>${admin?'Quản trị viên · Toàn quyền':'Phụ huynh · '+(u.role==='viewer'?'Chỉ xem':'Cùng chỉnh sửa')}</p></div></div><form id="profile-form"><div class="form-error" role="alert"></div><div class="form-grid">${field('Họ và tên','name',u.name,'text',true,true)}${admin?field('Email đăng nhập','email',u.email,'email',true,true)+field('Số điện thoại','phone',u.phone,'tel',false,true):`<p class="helper full">Số điện thoại đăng nhập: <strong>${esc(u.phone||u.email)}</strong>. Liên hệ admin khi cần thay đổi.</p>`}</div><button class="btn primary auth-submit" type="submit">Lưu hồ sơ</button></form><div class="settings-actions">${admin?'<a class="btn soft" href="#classes">Quản lý lớp</a><button class="btn soft" data-action="manage-users">Quản lý phụ huynh</button>':''}<button class="btn" data-action="logout">Đăng xuất</button></div></section><section class="profile-panel password-panel"><h2>Đổi mật khẩu</h2><p class="helper">Đặt mật khẩu riêng có ít nhất 8 ký tự.</p><form id="password-form"><div class="form-error" role="alert"></div><div class="form-grid">${passwordFields()}</div><button class="btn primary auth-submit" type="submit">Lưu mật khẩu mới</button></form></section></div>`;
+}
+function renderClasses(){
+  el.innerHTML=heading(cloud.user.role==='owner'?'Quản lý lớp':'Lớp của tôi','Mỗi lớp có danh sách học sinh, chuyên đề và lịch học riêng.',cloud.user.role==='owner'?'create-class':'', 'Thêm lớp')+`<div class="class-grid">${cloud.classes.map((c,i)=>`<article class="class-space" data-tone="${i%3}"><span class="class-label">${c.id===cloud.classId?'Đang xem':'Lớp học'}</span><h2>${esc(c.id===cloud.classId?db.className:c.name)}</h2><p>${esc(c.id===cloud.classId?db.schoolName:c.schoolName)}</p><p>${c.id===cloud.classId?db.students.length:c.students} học sinh</p><button class="btn primary" data-action="open-class" data-id="${esc(c.id)}">Xem lớp ${icon('arrow')}</button></article>`).join('')}</div>`;
+}
+function openClassForm(){if(cloud?.user.role!=='owner')return;showModal(modalHeader('Thêm lớp học','Tạo danh sách học sinh và lịch học riêng cho lớp mới.')+`<form id="create-class-form"><div class="modal-body"><div class="form-error" role="alert"></div><div class="form-grid">${field('Tên lớp','name','','text',true,true)}${field('Trường','schoolName',db.schoolName,'text',true,true)}</div></div>${formFooter('Tạo lớp')}</form>`);}
+async function switchClass(id){
+  if(!cloud||cloud.busy||cloud.pending||dirty){if(cloud)$('#class-switcher').value=cloud.classId;notify('Lưu hoặc xử lý thay đổi hiện tại trước khi chuyển lớp.');return;}
+  const old=cloud.classId;cloud.classId=id;cloud.busy=true;setCloudBusy(true);
+  try{await cloud.load();db=normalizeData(cloud.data);try{sessionStorage.setItem('hoc-nhom-class',id);}catch{}query='';filter='active';topicFilter='all';selectedMembers.clear();closeModal(true);location.hash='overview';render();}
+  catch(error){cloud.classId=old;$('#class-switcher').value=old;notify(error.message);}
+  finally{cloud.busy=false;setCloudBusy(false);updateCloudIndicator('Đã đồng bộ');}
+}
 function openSettings(){
-  showModal(modalHeader('Dữ liệu & cài đặt','Giữ thông tin lớp học gọn gàng và dễ mang theo.')+`<div class="modal-body"><div class="settings-notice">${cloud?'Dữ liệu lớp được lưu trong database riêng trên máy chủ và đồng bộ giữa các thiết bị sau khi đăng nhập. Hãy xuất bản sao định kỳ.':'Đây là bản trải nghiệm lưu trên trình duyệt hiện tại. Dữ liệu chưa đồng bộ giữa điện thoại, máy tính hoặc các phụ huynh. Xuất bản sao để chuyển sang thiết bị khác.'}</div>${cloud?`<section class="settings-block"><h3>Tài khoản đang đăng nhập</h3><p>${esc(cloud.user.name)} · ${esc(cloud.user.email)}</p><div class="settings-actions">${cloud.user.role==='owner'?'<button class="btn" data-action="manage-users">Quản lý tài khoản phụ huynh</button>':''}<button class="btn" data-action="logout">Đăng xuất</button></div></section>`:''}<section class="settings-block"><h3>Lớp & trường</h3><form id="class-form" class="settings-class-row"><div class="field"><label for="f-className">Tên lớp</label><input id="f-className" name="className" value="${esc(db.className)}" maxlength="80" required autocomplete="off"></div><div class="field"><label for="f-schoolName">Trường</label><input id="f-schoolName" name="schoolName" value="${esc(db.schoolName)}" maxlength="150" required autocomplete="off"></div><button type="submit" class="btn primary">Lưu</button></form></section><section class="settings-block"><h3>Sao lưu & khôi phục</h3><p>Xuất toàn bộ ${db.students.length} học sinh, ${db.topics.length} chuyên đề và ${db.groups.length} nhóm học thành tệp JSON. Nhập bản sao sẽ thay thế dữ liệu hiện tại.</p><div class="settings-actions"><button class="btn" data-action="export">${icon('download')}Xuất bản sao</button><button class="btn" data-action="import">${icon('upload')}Nhập bản sao</button><input type="file" id="import-file" accept=".json,application/json" class="hidden" aria-label="Chọn tệp sao lưu"></div></section><section class="settings-block"><h3>Nhập danh sách học sinh từ CSV</h3><p>5 cột: Tên HS, Tên PH, Địa chỉ, SĐT HS, SĐT PH. Có thể để trống địa chỉ và số điện thoại.</p><div class="settings-actions"><button class="btn" data-action="import-csv">${icon('upload')}Nhập CSV</button><a class="btn" href="/hoc-sinh-demo.csv" download>${icon('download')}Tải CSV mẫu</a></div></section><section class="settings-block"><h3>Dữ liệu giả lập</h3><p>20 học sinh, 20 phụ huynh, 4 chuyên đề và 6 nhóm mẫu. Số bắt đầu bằng 000 là số giả, các nút liên hệ sẽ không thực hiện cuộc gọi.</p><button class="btn danger" data-action="reset-demo">${icon('refresh')}Khôi phục dữ liệu mẫu</button></section></div><div class="modal-footer"><button class="btn" data-action="close-modal">Đóng</button></div>`,'settings');
+  showModal(modalHeader('Dữ liệu & cài đặt','Giữ thông tin lớp học gọn gàng và dễ mang theo.')+`<div class="modal-body"><div class="settings-notice">${cloud?'Dữ liệu lớp được lưu trong database riêng trên máy chủ và đồng bộ giữa các thiết bị sau khi đăng nhập. Hãy xuất bản sao định kỳ.':'Đây là bản trải nghiệm lưu trên trình duyệt hiện tại. Dữ liệu chưa đồng bộ giữa điện thoại, máy tính hoặc các phụ huynh. Xuất bản sao để chuyển sang thiết bị khác.'}</div>${cloud?`<section class="settings-block"><h3>Tài khoản đang đăng nhập</h3><p>${esc(cloud.user.name)} · ${esc(cloud.user.phone||cloud.user.email)}</p><div class="settings-actions">${cloud.user.role==='owner'?'<button class="btn" data-action="manage-users">Quản lý tài khoản phụ huynh</button>':''}<button class="btn" data-action="logout">Đăng xuất</button></div></section>`:''}<section class="settings-block"><h3>Lớp & trường</h3><form id="class-form" class="settings-class-row"><div class="field"><label for="f-className">Tên lớp</label><input id="f-className" name="className" value="${esc(db.className)}" maxlength="80" required autocomplete="off"></div><div class="field"><label for="f-schoolName">Trường</label><input id="f-schoolName" name="schoolName" value="${esc(db.schoolName)}" maxlength="150" required autocomplete="off"></div><button type="submit" class="btn primary">Lưu</button></form></section><section class="settings-block"><h3>Sao lưu & khôi phục</h3><p>Xuất toàn bộ ${db.students.length} học sinh, ${db.topics.length} chuyên đề và ${db.groups.length} nhóm học thành tệp JSON. Nhập bản sao sẽ thay thế dữ liệu hiện tại.</p><div class="settings-actions"><button class="btn" data-action="export">${icon('download')}Xuất bản sao</button><button class="btn" data-action="import">${icon('upload')}Nhập bản sao</button><input type="file" id="import-file" accept=".json,application/json" class="hidden" aria-label="Chọn tệp sao lưu"></div></section><section class="settings-block"><h3>Nhập danh sách học sinh từ CSV</h3><p>5 cột: Tên HS, Tên PH, Địa chỉ, SĐT HS, SĐT PH. Có thể để trống địa chỉ và số điện thoại.</p><div class="settings-actions"><button class="btn" data-action="import-csv">${icon('upload')}Nhập CSV</button><a class="btn" href="/hoc-sinh-demo.csv" download>${icon('download')}Tải CSV mẫu</a></div></section><section class="settings-block"><h3>Dữ liệu giả lập</h3><p>20 học sinh, 20 phụ huynh, 4 chuyên đề và 6 nhóm mẫu. Số bắt đầu bằng 000 là số giả, các nút liên hệ sẽ không thực hiện cuộc gọi.</p><button class="btn danger" data-action="reset-demo">${icon('refresh')}Khôi phục dữ liệu mẫu</button></section></div><div class="modal-footer"><button class="btn" data-action="close-modal">Đóng</button></div>`,'settings');
+  if(cloud&&cloud.user.role!=='owner')$('#class-form').innerHTML=`<p><strong>${esc(db.className)}</strong><br>${esc(db.schoolName)}</p>`;
 }
 function confirmAction(title,text,callback,cancel=null,label='Xác nhận'){
   confirmCallback=callback;confirmCancel=cancel;
@@ -349,7 +374,7 @@ function requiredForm(form){
   return true;
 }
 function exportData(){
-  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`cung-hoc-${localDate()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('Đã xuất bản sao dữ liệu lớp học.');
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`hoc-nhom-${localDate()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('Đã xuất bản sao dữ liệu lớp học.');
 }
 async function copyGroup(id){
   const g=group(id);if(!g)return;const text=`${g.name} — ${topic(g.topicId)?.name}\n${dateLabel(g.date,{day:'numeric',month:'numeric',year:'numeric'})}, ${g.start}–${g.end}\nĐịa điểm: ${g.address||'Chưa có'}\nChủ nhà: ${g.hostName||'Chưa có'} — ${g.hostPhone||'Chưa có SĐT'}\nThành viên: ${g.members.map(id=>student(id)?.name).join(', ')}${g.note?'\nLưu ý: '+g.note:''}`;
@@ -364,7 +389,12 @@ document.addEventListener('click',async e=>{
   if(cloud?.pending&&!['export','retry-cloud','reload-cloud'].includes(action)){notify('Có thay đổi chưa đồng bộ. Xuất bản sao hoặc tải dữ liệu mới trước khi tiếp tục.');return;}
   if(cloud?.user.role==='viewer'&&/^(new-|edit-|delete-|toggle-|reset-|commit-|import|next-|reschedule-)/.test(action)){notify('Tài khoản này chỉ có quyền xem dữ liệu.');return;}
   switch(action){
-    case 'logout':if(cloud&&!dirty)await cloud.logout();break;
+    case 'profile':location.hash='profile';break;
+    case 'create-class':openClassForm();break;
+    case 'open-class':await switchClass(id);break;
+    case 'parents-from-students':confirmAction('Cấp tài khoản phụ huynh?', 'Tạo tài khoản chỉ xem cho các số điện thoại hợp lệ trong lớp hiện tại, với mật khẩu mặc định 12345678. Tài khoản đã có sẽ được cấp thêm lớp và giữ nguyên mật khẩu.', async()=>{try{const result=await cloud.request('/users/from-students?classId='+encodeURIComponent(cloud.classId),{method:'POST',body:'{}'});await openUserManagement();notify(`Đã tạo ${result.created} tài khoản, thêm ${result.linked} quyền lớp; bỏ qua ${result.skipped} dòng.`);}catch(error){notify(error.message);}},null,'Cấp tài khoản');break;
+    case 'reset-parent-password':confirmAction('Đặt lại mật khẩu?', 'Mật khẩu trở về 12345678. Phụ huynh sẽ bị đăng xuất và phải đổi mật khẩu trong lần đăng nhập tiếp theo.',async()=>{try{await cloud.request('/users/reset-password',{method:'POST',body:JSON.stringify({id})});await openUserManagement();notify('Đã đặt lại mật khẩu.');}catch(error){notify(error.message);}},null,'Đặt lại');break;
+    case 'logout':if(cloud){if(dirty)confirmAction('Đăng xuất và bỏ thay đổi?', 'Những thông tin đang nhập chưa được lưu.',async()=>{dirty=false;await cloud.logout();},null,'Đăng xuất');else await cloud.logout();}break;
     case 'manage-users':await openUserManagement();break;
     case 'retry-cloud':committed('Đã lưu lại lên database.');closeModal(true);break;
     case 'reload-cloud':try{await cloud.load();db=normalizeData(cloud.data);cloud.pending=null;storageFailed=false;closeModal(true);render();notify('Đã tải dữ liệu mới từ database.');}catch(error){notify(error.message);}break;
@@ -398,7 +428,7 @@ document.addEventListener('click',async e=>{
     case 'delete-group':{const g=group(id);confirmAction('Xóa nhóm học?',`Nhóm “${g.name}” và lịch hẹn của nhóm sẽ bị xóa. Các học sinh vẫn được giữ trong danh sách lớp.`,()=>{db.groups=db.groups.filter(g=>g.id!==id);closeModal(true);if(page==='groups'&&routeId){location.hash='groups';routeId='';}committed('Đã xóa nhóm học.');},()=>openGroupDetail(id),'Xóa nhóm');break;}
     case 'delete-topic':{const t=topic(id),n=countGroups(id);confirmAction('Xóa chuyên đề?',`Xóa “${t.name}” cùng ${n} nhóm và lịch hẹn trong chuyên đề này? Học sinh vẫn được giữ trong danh sách lớp.`,()=>{db.topics=db.topics.filter(t=>t.id!==id);db.groups=db.groups.filter(g=>g.topicId!==id);closeModal(true);routeId='';location.hash='topics';committed('Đã xóa chuyên đề và các nhóm liên quan.');},null,'Xóa chuyên đề');break;}
     case 'delete-student':{const s=student(id),n=db.groups.filter(g=>g.members.includes(id)||(g.history||[]).some(h=>h.members.includes(id))).length;if(n){notify(`Học sinh đang thuộc ${n} nhóm hoặc có trong lịch sử buổi học. Hãy giữ thông tin để bảo toàn danh sách.`);break;}confirmAction('Xóa học sinh?',`Xóa thông tin ${s.name} và phụ huynh ${s.parent} khỏi danh sách lớp?`,()=>{db.students=db.students.filter(s=>s.id!==id);closeModal(true);committed('Đã xóa học sinh.');},null,'Xóa học sinh');break;}
-    case 'confirm':{const cb=confirmCallback;confirmCallback=null;cb?.();break;}
+    case 'confirm':{const cb=confirmCallback;confirmCallback=null;button.disabled=true;try{await cb?.();}finally{button.disabled=false;}break;}
     case 'cancel-confirm':{const cb=confirmCancel;closeModal(true);confirmCancel=null;cb?.();break;}
     case 'copy-group':await copyGroup(id);break;
     case 'export':exportData();break;
@@ -429,17 +459,29 @@ document.addEventListener('change',async e=>{
   if(target.id==='topic-filter'){topicFilter=target.value;setURLFilter();renderGroupList();}
   if(target.id==='import-file'){
     const file=target.files?.[0];if(!file)return;if(file.size>5*1024*1024){notify('Tệp quá lớn. Chọn bản sao JSON nhỏ hơn 5 MB.');target.value='';return;}
-    try{const parsed=JSON.parse(await file.text());if(!validateData(parsed))throw Error();confirmAction('Nhập bản sao dữ liệu?',`Thay thế dữ liệu hiện tại bằng ${parsed.students.length} học sinh, ${parsed.topics.length} chuyên đề và ${parsed.groups.length} nhóm từ tệp này?`,()=>{db=normalizeData(parsed);closeModal(true);committed('Đã nhập bản sao dữ liệu.');},()=>openSettings(),'Nhập và thay thế');}catch{notify('Tệp không hợp lệ. Chọn bản sao JSON được xuất từ Cùng học.');target.value='';}
+    try{const parsed=JSON.parse(await file.text());if(!validateData(parsed))throw Error();confirmAction('Nhập bản sao dữ liệu?',`Thay thế dữ liệu hiện tại bằng ${parsed.students.length} học sinh, ${parsed.topics.length} chuyên đề và ${parsed.groups.length} nhóm từ tệp này?`,()=>{db=normalizeData(parsed);closeModal(true);committed('Đã nhập bản sao dữ liệu.');},()=>openSettings(),'Nhập và thay thế');}catch{notify('Tệp không hợp lệ. Chọn bản sao JSON được xuất từ Học Nhóm.');target.value='';}
   }
 });
 document.addEventListener('submit',async e=>{
+  const special=e.target;
+  if(['profile-form','password-form','create-class-form'].includes(special.id)||special.classList.contains('access-form')){
+    e.preventDefault();if(!cloud||cloud.busy||cloud.pending)return;
+    const button=special.querySelector('button[type=submit]'),input=Object.fromEntries(new FormData(special));button.disabled=true;
+    try{
+      if(special.id==='password-form'){await changePassword(cloud,special);special.reset();dirty=false;notify('Đã đổi mật khẩu. Các phiên đăng nhập khác đã kết thúc.');}
+      else if(special.id==='profile-form'){const result=await cloud.request('/profile',{method:'PUT',body:JSON.stringify({...input,phone:input.phone??cloud.user.phone,email:input.email??cloud.user.email})});cloud.user=result.user;dirty=false;render();notify('Đã cập nhật hồ sơ.');}
+      else if(special.classList.contains('access-form')){await cloud.request('/users/access',{method:'PUT',body:JSON.stringify({...input,id:special.dataset.id,classIds:new FormData(special).getAll('classIds')})});dirty=false;await openUserManagement();notify('Đã lưu quyền truy cập.');}
+      else {const result=await cloud.request('/classes',{method:'POST',body:JSON.stringify(input)});cloud.classes=result.classes;dirty=false;closeModal(true);await switchClass(result.id);notify('Đã tạo lớp. Bạn có thể thêm học sinh hoặc nhập CSV.');}
+    }catch(error){const target=special.querySelector('.form-error');if(target)target.textContent=error.message;else notify(error.message);}
+    finally{button.disabled=false;}return;
+  }
   const form=e.target;if(!['student-form','topic-form','group-form','class-form','session-form','user-form'].includes(form.id))return;e.preventDefault();
   if(cloud?.busy||cloud?.pending)return;
   if(cloud?.user.role==='viewer'){notify('Tài khoản chỉ có quyền xem.');return;}
-  if(form.id==='user-form'){const button=$('button[type=submit]',form);button.disabled=true;try{await cloud.addUser(Object.fromEntries(new FormData(form)));dirty=false;await openUserManagement();notify('Đã tạo tài khoản. Bạn có thể gửi email và mật khẩu cho phụ huynh.');}catch(error){$('.form-error',form).textContent=error.message;}finally{button.disabled=false;}return;}
+  if(form.id==='user-form'){const button=$('button[type=submit]',form);button.disabled=true;try{await cloud.addUser({...Object.fromEntries(new FormData(form)),classIds:new FormData(form).getAll('classIds')});dirty=false;await openUserManagement();notify('Đã tạo tài khoản. Phụ huynh đăng nhập bằng số điện thoại và mật khẩu lần đầu 12345678.');}catch(error){$('.form-error',form).textContent=error.message;}finally{button.disabled=false;}return;}
   const f=new FormData(form),id=form.dataset.id;
   const get=k=>String(f.get(k)||'').trim();
-  if(form.id==='class-form'){const name=get('className');if(!name){form.elements.className.focus();return;}const school=get('schoolName');if(!school){form.elements.schoolName.focus();return;}db.className=name;db.schoolName=school;dirty=false;committed('Đã lưu lớp và trường.');return;}
+  if(form.id==='class-form'){if(cloud&&cloud.user.role!=='owner'){notify('Chỉ admin có quyền đổi thông tin lớp.');return;}const name=get('className');if(!name){form.elements.className.focus();return;}const school=get('schoolName');if(!school){form.elements.schoolName.focus();return;}db.className=name;db.schoolName=school;dirty=false;committed('Đã lưu lớp và trường.');return;}
   if(!requiredForm(form))return;
   if(form.id==='session-form'){saveSessionForm(form);return;}
   if(form.id==='student-form'){
@@ -464,12 +506,14 @@ modal.addEventListener('cancel',e=>{e.preventDefault();closeModal();});
 modal.addEventListener('click',e=>{if(e.target===modal){const r=modal.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeModal();}});
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(!dirty)openSearch();}});
 window.addEventListener('beforeunload',e=>{if(dirty||cloud?.busy||cloud?.pending){e.preventDefault();e.returnValue='';}});
-window.addEventListener('hashchange',()=>{if(dirty&&modal.open){closeModal();return;}readRoute();el.focus({preventScroll:true});window.scrollTo({top:0});});
+window.addEventListener('hashchange',()=>{if(dirty&&!modal.open){const destination=location.hash;history.replaceState(null,'','#'+page);confirmAction('Bỏ thay đổi chưa lưu?','Thông tin bạn đang nhập chưa được lưu. Tiếp tục để chuyển trang.',()=>{dirty=false;closeModal(true);location.hash=destination;},()=>{dirty=true;},'Bỏ thay đổi');return;}if(dirty&&modal.open){closeModal();return;}readRoute();el.focus({preventScroll:true});window.scrollTo({top:0});});
 window.addEventListener('storage',e=>{if(cloud)return;if(e.key===STORAGE_KEY&&e.newValue){try{const next=JSON.parse(e.newValue);if(validateData(next)){if(dirty){notify('Dữ liệu đã đổi ở tab khác. Xuất bản sao trước khi lưu nếu cần giữ cả hai bản.');return;}db=normalizeData(next);render();if(modal.open&&modalKind==='detail')closeModal(true);notify('Đã cập nhật dữ liệu từ tab khác.');}}catch{}}});
 readRoute();
 if(loadFailed)notify('Dữ liệu đã lưu không đọc được. Đang mở bộ mẫu; bản cũ vẫn giữ trên trình duyệt cho đến khi bạn lưu thay đổi.');
 if(!cloud&&!hadStoredData&&!loadFailed)persist();
 if(cloud){
-  const refresh=async()=>{if(document.hidden||cloud.busy||cloud.pending||dirty||modal.open)return;try{const next=await cloud.request('/state');if(next.revision!==cloud.revision){cloud.data=next.data;cloud.revision=next.revision;db=normalizeData(next.data);render();notify('Đã cập nhật dữ liệu từ thiết bị khác.');}}catch(error){updateCloudIndicator(error.status===401?'Cần đăng nhập lại':'Mất kết nối');}};
+  const refresh=async()=>{if(document.hidden||cloud.busy||cloud.pending||dirty||modal.open)return;try{const id=cloud.classId,next=await cloud.request(cloud.statePath());if(id!==cloud.classId||cloud.busy)return;if(next.revision!==cloud.revision){cloud.data=next.data;cloud.revision=next.revision;db=normalizeData(next.data);render();notify('Đã cập nhật dữ liệu từ thiết bị khác.');}}catch(error){updateCloudIndicator(error.status===401?'Cần đăng nhập lại':'Mất kết nối');}};
   setInterval(refresh,15000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
 }
+
+document.addEventListener('change',e=>{if(e.target.id==='class-switcher')switchClass(e.target.value);});

@@ -1,4 +1,4 @@
-name: Check Cung hoc
+name: Check Hoc Nhom
 on:
   push:
     branches: [main]

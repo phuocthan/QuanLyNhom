@@ -32,10 +32,28 @@ export function openDatabase(filename) {
       db.prepare("INSERT INTO schema_migrations VALUES(2,datetime('now'))").run();db.exec('COMMIT');
     }catch(error){db.exec('ROLLBACK');throw error;}
   }
+  if(!db.prepare('SELECT version FROM schema_migrations WHERE version=3').get()){
+    db.exec('BEGIN IMMEDIATE');
+    try{
+      db.exec(`ALTER TABLE users ADD COLUMN phone TEXT;
+        ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0;
+        CREATE UNIQUE INDEX users_phone ON users(phone) WHERE phone IS NOT NULL;
+        CREATE TABLE class_spaces(id TEXT PRIMARY KEY, state TEXT CHECK(state IS NULL OR json_valid(state)), revision INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL);
+        INSERT INTO class_spaces VALUES('default',NULL,0,datetime('now'));
+        CREATE TABLE class_access(user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, class_id TEXT NOT NULL REFERENCES class_spaces(id), PRIMARY KEY(user_id,class_id));
+        INSERT INTO class_access SELECT id,'default' FROM users WHERE role!='owner';
+        INSERT INTO schema_migrations VALUES(3,datetime('now'));`);
+      db.exec('COMMIT');
+    }catch(error){db.exec('ROLLBACK');throw error;}
+  }
   return db;
 }
 
-export function loadState(db) {
+export function loadState(db,classId='default') {
+  if(classId!=='default'){
+    const row=db.prepare('SELECT * FROM class_spaces WHERE id=?').get(classId);
+    return row?{data:JSON.parse(row.state),revision:row.revision,updatedAt:row.updated_at}:null;
+  }
   const meta=db.prepare('SELECT name,school_name,revision,updated_at FROM classroom WHERE id=1').get();
   const students=db.prepare('SELECT record FROM students ORDER BY position').all().map(r=>JSON.parse(r.record));
   const topics=db.prepare('SELECT record FROM topics ORDER BY position').all().map(r=>JSON.parse(r.record));
@@ -50,11 +68,23 @@ export function loadState(db) {
   return {data:{version:1,className:meta.name,schoolName:meta.school_name,students,topics,groups},revision:meta.revision,updatedAt:meta.updated_at};
 }
 
-export function saveState(db,input,revision,userId) {
+export function saveState(db,input,revision,userId,classId='default') {
   if(!Number.isSafeInteger(revision)||revision<0||!validateData(input))return {error:'invalid',status:400};
   const data=normalizeData(structuredClone(input));
   const ids=data.groups.flatMap(g=>[g.sessionId,...g.history.map(h=>h.id)]);
   if(new Set(ids).size!==ids.length)return {error:'invalid',status:400};
+  if(classId!=='default'){
+    db.exec('BEGIN IMMEDIATE');
+    try{
+      const row=db.prepare('SELECT revision FROM class_spaces WHERE id=?').get(classId);
+      if(!row){db.exec('ROLLBACK');return {error:'invalid',status:404};}
+      if(row.revision!==revision){db.exec('ROLLBACK');return {error:'conflict',status:409,revision:row.revision};}
+      const updatedAt=new Date().toISOString(),next=revision+1;
+      db.prepare('UPDATE class_spaces SET state=?,revision=?,updated_at=? WHERE id=?').run(JSON.stringify(data),next,updatedAt,classId);
+      db.prepare('INSERT INTO audit_log(user_id,revision,created_at) VALUES(?,?,?)').run(userId,next,updatedAt);
+      db.exec('COMMIT');return {revision:next,updatedAt};
+    }catch(error){db.exec('ROLLBACK');throw error;}
+  }
   db.exec('BEGIN IMMEDIATE');
   try{
     const current=db.prepare('SELECT revision FROM classroom WHERE id=1').get().revision;

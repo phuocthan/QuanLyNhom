@@ -15,7 +15,8 @@ export function readSession(db,req){
   const cookies=String(req.headers.cookie||'').split(';').map(x=>x.trim());
   const token=cookies.find(x=>x.startsWith('cung_hoc_session='))?.slice(17);
   if(!token||token.length>100)return null;
-  return db.prepare('SELECT u.id,u.email,u.name,u.role,s.csrf_token,s.token_hash FROM auth_sessions s JOIN users u ON u.id=s.user_id WHERE token_hash=? AND expires_at>?').get(hashToken(token),Date.now())||null;
+  return db.prepare('SELECT u.id,u.email,u.name,u.phone,u.must_change_password,u.role,s.csrf_token,s.token_hash FROM auth_sessions s JOIN users u ON u.id=s.user_id WHERE token_hash=? AND expires_at>?').get(hashToken(token),Date.now())||null;
 }
-export const publicUser=user=>({id:user.id,email:user.email,name:user.name,role:user.role});
+export const publicUser=user=>({id:user.id,email:user.email.endsWith('@phone.internal')?'':user.email,name:user.name,phone:user.phone||'',role:user.role,mustChangePassword:!!user.must_change_password});
+export const normalizePhone=value=>{let phone=String(value||'').replace(/[\s().-]/g,'');if(phone.startsWith('+84'))phone='0'+phone.slice(3);else if(phone.startsWith('84')&&phone.length===11)phone='0'+phone.slice(2);return /^0[35789]\d{8}$/.test(phone)?phone:'';};
 export const sessionCookie=(token,secure=false,maxAge=604800)=>`cung_hoc_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${secure?'; Secure':''}`;
