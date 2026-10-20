@@ -272,3 +272,88 @@ body:not(.cloud-mode) .class-picker{display:none}
 .header-logout:hover{background:#fbe1d2;border-color:#c98e6d}
 body:not(.cloud-mode) .header-logout{display:none}
 @media(max-width:760px){.header-logout{padding:8px;font-size:12px;min-height:40px}.top-actions{gap:6px}.school-context{overflow-wrap:anywhere}.breadcrumb{min-width:0}}
+
+/* Colorful classroom palette: page colors identify sections, subject colors identify subjects. */
+body{background:#eef3f8}
+.sidebar{background:#e5f3ed;border-right:1px solid #b8d9cd}
+.brand{color:#125e52}
+.topbar{background:#fff5df;border-bottom:2px solid #ead39f}
+.class-card{background:#ccebdd;border-color:#9acbb7}
+.class-symbol{background:#18796b;color:#fff}
+.class-picker select{border-color:#9acbb7;background:#f8fffb}
+#nav{display:grid;gap:7px}
+#nav .nav-item{background:var(--nav-tint,#e5ebfa);color:var(--nav-color,#3e5588);border:1px solid color-mix(in srgb,var(--nav-color,#3e5588) 18%,transparent)}
+#nav .nav-item:hover{background:color-mix(in srgb,var(--nav-color,#3e5588) 18%,white)}
+#nav .nav-item.active{background:var(--nav-color,#3e5588);color:#fff;border-color:transparent;box-shadow:0 4px 12px #28485c12}
+#nav .nav-item.active>.icon{color:#fff}
+#nav .nav-item.active .nav-count{background:#ffffffeb;color:var(--nav-color,#3e5588)}
+#main{--page-accent:#176d5c;--page-tint:#dcf1e7;--page-edge:#a8d3be}
+#main[data-page="topics"]{--page-accent:#7243a6;--page-tint:#ece1f9;--page-edge:#ccb3e7}
+#main[data-page="groups"]{--page-accent:#985015;--page-tint:#ffebd5;--page-edge:#edc49a}
+#main[data-page="students"]{--page-accent:#245e9c;--page-tint:#dfecfc;--page-edge:#aac9eb}
+#main[data-page="calendar"]{--page-accent:#a13366;--page-tint:#f9e1ed;--page-edge:#e7aec8}
+#main[data-page="profile"]{--page-accent:#346486;--page-tint:#dfeef7;--page-edge:#b1d1e4}
+#main[data-page="classes"]{--page-accent:#176d5c;--page-tint:#d9f0e5;--page-edge:#a1ceb9}
+.page-heading{padding:22px 24px;border-radius:14px;background:var(--page-tint);border:1px solid var(--page-edge);border-left:5px solid var(--page-accent);gap:14px}
+.page-heading h1{color:var(--page-accent)}
+.page-subtitle{color:#465e68}
+#main .btn.primary{background:var(--page-accent);border-color:var(--page-accent);color:#fff}
+#main .btn.primary:hover{background:color-mix(in srgb,var(--page-accent) 85%,#152f37);border-color:transparent}
+.toolbar{padding:14px;border-radius:12px;background:var(--page-tint);border:1px solid var(--page-edge)}
+.tabs{background:#ffffffb8}
+.tabs button.active,.tabs a.active{background:var(--page-accent);color:#fff}
+.stat{background:var(--tint);border-color:var(--edge);border-bottom:4px solid var(--accent);box-shadow:0 4px 12px #234a5c07}
+.stat .stat-icon{background:var(--accent);color:#fff;border-radius:12px}
+.stat strong{font-variant-numeric:tabular-nums}
+.stat[data-color="blue"]{--tint:#dceaff;--edge:#b0cef6}
+.stat[data-color="purple"]{--tint:#ebdffc;--edge:#ceb2f0}
+.stat[data-color="orange"]{--tint:#ffe8cd;--edge:#ebc190}
+.stat[data-color="green"]{--tint:#d9efdf;--edge:#a8d2b5}
+.upcoming-panel{background:#fff3df;border:1px solid #ead0a5;padding:20px;border-radius:16px}
+.upcoming-panel>.section-head h2{color:#895014}
+.upcoming-panel .empty{background:#fffbf4;border:1px dashed #dfbd8b;border-radius:12px}
+.pending-sessions{padding:20px;border:1px solid #e8c1a3;border-radius:16px;background:#fff0e3}
+.pending-sessions .section-head h2{color:#974822}
+.session-card,.topic-card{background:var(--tint);box-shadow:0 4px 12px #234a5c08}
+.session-card .subject,.topic-card .subject{background:#ffffffdc}
+.session-footer{background:color-mix(in srgb,var(--edge) 45%,white)}
+.topic-row{background:var(--tint);border-color:var(--edge);border-left-color:var(--accent);border-radius:10px}
+.section-head h2{color:var(--page-accent,#176d5c)}
+.subcount{background:var(--page-tint,#dcefe4);color:var(--page-accent,#176d5c);padding:3px 8px;border-radius:7px}
+.mini-calendar,.big-calendar{background:#ffedcd;border-color:#e7c48a}
+.calendar-header h3{color:#855316}
+.calendar-weekdays{color:#7f531b}
+.calendar-days button{border-radius:8px}
+.calendar-days button:hover{background:#ffe1a8}
+.calendar-days button.today{background:#18796b;color:#fff}
+.day-agenda{padding:18px;background:#fcecf4;border:1px solid #e6bed2;border-radius:16px}
+.day-agenda>h2{color:#96345f}
+.students-table th{background:#cee1fb;color:#204e80}
+.students-table tbody tr:nth-child(even){background:#eaf3ff}
+.csv-actions .btn:first-child{background:#d8e9ff;color:#20568d;border-color:#a8c7ec}
+.csv-actions a.btn{background:#ffedce;color:#815218;border-color:#e6c692}
+.profile-panel{background:#e1f2ea;border-color:#acd1bf;border-top:4px solid #338367}
+.password-panel{background:#fff0d7;border-color:#e2c38e;border-top-color:#b07b24}
+.password-panel h2{color:#805014}
+.profile-panel .profile-title h2{color:#165b47}
+.class-space{background:#d9f0e4;border-color:#a7d0ba;border-top-color:#328567}
+.class-space[data-tone="1"]{background:#dfeaff;border-color:#b2c8ec;border-top-color:#4c73b1}
+.class-space[data-tone="2"]{background:#ffebcc;border-color:#e4c28f;border-top-color:#ac7723}
+.class-space[data-tone="3"]{background:#f6e0ed;border-color:#deb3cd;border-top-color:#a7447c}
+.class-space[data-tone="4"]{background:#e9dff8;border-color:#c9b3e5;border-top-color:#8056b4}
+.account-row:nth-child(even){background:#eaf2ff}
+.account-row:nth-child(odd){background:#e4f3eb}
+.settings-notice{background:#e0edf9;border-color:#afcce4;color:#2d526e}
+.settings-block{background:#e8f5ed;border-radius:10px;padding:18px;border-left-color:#80b89c}
+.settings-block:nth-of-type(even){background:#fff0d7;border-color:#cfac68}
+.modal-header{background:#e4f1ed;border-bottom:1px solid #bed9cc}
+.modal-footer{background:#f1f4fa}
+.auth-card{background:#fffdf7;border-color:#bdd9ca;border-top-color:#18796b}
+.auth-card h1{color:#155e51}
+.auth-card input{background:#fff}
+.auth-card .auth-footnote{background:#deecff;border-color:#b5cfee;color:#2f5174}
+.admin-contact{background:#e0f1e8;border:1px solid #b3d7c5;border-radius:10px;padding:13px;color:#155b48}
+.sidebar-profile{background:#dbe8ff;border-color:#adc6e8}
+#mobile-nav{background:#f8fffcf5;border-top-color:#b7d6c8}
+#mobile-nav a{background:color-mix(in srgb,var(--nav-tint) 65%,white)}
+@media(max-width:760px){.page-heading{padding:16px 14px;border-left-width:4px}.toolbar{padding:10px}.upcoming-panel,.pending-sessions{padding:14px}.day-agenda{padding:12px}.stat{border-bottom-width:3px}.stat .stat-icon{border-radius:9px}.settings-block{padding:14px}.topbar{background:#fff3d8}}

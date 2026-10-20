@@ -32,3 +32,7 @@ Rà kế hoạch: tránh trang landing, tránh biểu đồ và ảnh trang trí
 Trang đăng nhập dùng tên Học Nhóm, số điện thoại/email admin, mật khẩu và liên hệ Zalo admin 0975 163 361. Phụ huynh được cấp mật khẩu lần đầu 12345678 và phải đổi trước khi vào lớp. Hồ sơ admin có thông tin cá nhân, đổi mật khẩu và lối vào quản lý lớp/phụ huynh. Lớp được chọn ở sidebar desktop hoặc tên lớp trong header mobile.
 
 Các khung dùng nền có sắc độ khác nhau: sidebar và hồ sơ xanh ngọc, header và đổi mật khẩu vàng kem, bảng học sinh xanh lam. Thẻ lớp xen các tông xanh ngọc/xanh lam/vàng để phân biệt; luôn có tên lớp và nhãn đang xem. Giữ màu môn học trên chuyên đề/nhóm/lịch.
+
+## Màu sắc bổ sung
+
+Mỗi trang có màu nhận diện trên tiêu đề, thanh công cụ và nút chính: tổng quan/lớp xanh ngọc, chuyên đề tím, nhóm cam, học sinh xanh lam, lịch hồng. Thanh điều hướng dùng cùng màu và nền đậm khi đang chọn. Các khung số liệu, lịch, hồ sơ, đổi mật khẩu và thẻ lớp dùng nền pastel rõ hơn; nội dung luôn có nhãn để không phụ thuộc riêng vào màu. Thẻ chuyên đề và buổi học giữ màu môn học trên toàn khung.
