@@ -67,6 +67,7 @@ const mayCreateLearning=()=>canCreateLearning(db,learningUser());
 const mayManageGroup=g=>canManageGroup(db,learningUser(),g);
 const mayTransferGroup=g=>canTransferGroup(db,learningUser(),g);
 function learningActionAllowed(action,id){
+  if(action==='settings')return canManageStudents();
   if(['new-topic','new-group','edit-topic','toggle-topic'].includes(action))return mayCreateLearning();
   if(action==='delete-topic')return canManageStudents();
   if(['edit-group','delete-group','toggle-group','next-session','reschedule-session','edit-session-note'].includes(action))return mayManageGroup(group(id));
@@ -200,6 +201,7 @@ function render(){
   else if(page==='topics'&&routeId)renderTopicDetail(routeId);
   else if(page==='topics')renderTopics();else if(page==='groups')renderGroups();else if(page==='students')renderStudents();else if(page==='calendar')renderCalendar();else renderOverview();
   applyLearningPermissions(el);
+  applyLearningPermissions($('.sidebar'));
   $$('.topbar [data-icon],.sidebar [data-icon]').forEach(n=>n.innerHTML=icon(n.dataset.icon));
   if(cloud){$('.profile-button').dataset.action='profile';$('.profile-button').setAttribute('aria-label','Mở hồ sơ cá nhân');$('.profile-button').textContent=initials(cloud.user.name);$('.sidebar-profile').setAttribute('data-action','profile');updateCloudIndicator(cloud.busy?'Đang lưu…':storageFailed?'Chưa đồng bộ':'Đã đồng bộ');$('.sidebar-profile strong').textContent=cloud.user.name;$('.sidebar-profile small').textContent=cloud.user.role==='owner'?'Quản trị lớp học':cloud.user.role==='viewer'?'Chỉ xem':'Cùng chỉnh sửa';}
 }
@@ -386,8 +388,8 @@ async function switchClass(id){
   finally{cloud.busy=false;setCloudBusy(false);updateCloudIndicator('Đã đồng bộ');}
 }
 function openSettings(){
+  if(!canManageStudents())return;
   showModal(modalHeader('Dữ liệu & cài đặt','Giữ thông tin lớp học gọn gàng và dễ mang theo.')+`<div class="modal-body"><div class="settings-notice">${cloud?'Dữ liệu lớp được lưu trong database riêng trên máy chủ và đồng bộ giữa các thiết bị sau khi đăng nhập. Hãy xuất bản sao định kỳ.':'Đây là bản trải nghiệm lưu trên trình duyệt hiện tại. Dữ liệu chưa đồng bộ giữa điện thoại, máy tính hoặc các phụ huynh. Xuất bản sao để chuyển sang thiết bị khác.'}</div>${cloud?`<section class="settings-block"><h3>Tài khoản đang đăng nhập</h3><p>${esc(cloud.user.name)} · ${esc(cloud.user.phone||cloud.user.email)}</p><div class="settings-actions">${cloud.user.role==='owner'?'<button class="btn" data-action="manage-users">Quản lý tài khoản phụ huynh</button>':''}<button class="btn" data-action="logout">Đăng xuất</button></div></section>`:''}<section class="settings-block"><h3>Lớp & trường</h3><form id="class-form" class="settings-class-row"><div class="field"><label for="f-className">Tên lớp</label><input id="f-className" name="className" value="${esc(db.className)}" maxlength="80" required autocomplete="off"></div><div class="field"><label for="f-schoolName">Trường</label><input id="f-schoolName" name="schoolName" value="${esc(db.schoolName)}" maxlength="150" required autocomplete="off"></div><button type="submit" class="btn primary">Lưu</button></form></section><section class="settings-block"><h3>Sao lưu & khôi phục</h3><p>Xuất toàn bộ ${db.students.length} học sinh, ${db.topics.length} chuyên đề và ${db.groups.length} nhóm học thành tệp JSON. Nhập bản sao sẽ thay thế dữ liệu hiện tại.</p><div class="settings-actions"><button class="btn" data-action="export">${icon('download')}Xuất bản sao</button><button class="btn" data-action="import">${icon('upload')}Nhập bản sao</button><input type="file" id="import-file" accept=".json,application/json" class="hidden" aria-label="Chọn tệp sao lưu"></div></section><section class="settings-block"><h3>Nhập danh sách học sinh từ CSV</h3><p>5 cột: Tên HS, Tên PH, Địa chỉ, SĐT HS, SĐT PH. Có thể thêm Tên PH 2, SĐT PH 2, Quan hệ PH 1, Quan hệ PH 2. Hỗ trợ tiêu đề Số Điện Thoại Phụ Huynh 1/2 từ Google Sheet.</p><div class="settings-actions"><button class="btn" data-action="import-csv">${icon('upload')}Nhập CSV</button><a class="btn" href="/hoc-sinh-demo.csv" download>${icon('download')}Tải CSV mẫu</a></div></section><section class="settings-block"><h3>Dữ liệu giả lập</h3><p>20 học sinh, 20 phụ huynh, 4 chuyên đề và 6 nhóm mẫu. Số bắt đầu bằng 000 là số giả, các nút liên hệ sẽ không thực hiện cuộc gọi.</p><button class="btn danger" data-action="reset-demo">${icon('refresh')}Khôi phục dữ liệu mẫu</button></section></div><div class="modal-footer"><button class="btn" data-action="close-modal">Đóng</button></div>`,'settings');
-  if(cloud&&cloud.user.role!=='owner')$('#class-form').innerHTML=`<p><strong>${esc(db.className)}</strong><br>${esc(db.schoolName)}</p>`;
 }
 function confirmAction(title,text,callback,cancel=null,label='Xác nhận'){
   confirmCallback=callback;confirmCancel=cancel;

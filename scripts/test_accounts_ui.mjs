@@ -24,6 +24,9 @@ try{
   await page.locator('#auth-password').fill('Owner-test-password-123');
   await page.getByRole('button',{name:'Tạo tài khoản & bắt đầu',exact:true}).click();
   await page.getByRole('heading',{name:'Tổng quan',exact:true}).waitFor();
+  await page.locator('.sidebar [data-action=settings]').click();
+  await page.getByRole('heading',{name:'Dữ liệu & cài đặt',exact:true}).waitFor();
+  await page.locator('#modal .modal-close').click();
   await page.getByRole('button',{name:'Mở hồ sơ cá nhân'}).click();
   await page.getByRole('heading',{name:'Hồ sơ admin',exact:true}).waitFor();
   await page.screenshot({path:'artifacts/hoc-nhom-admin-profile.png',fullPage:true});
@@ -103,6 +106,7 @@ try{
   await other.getByRole('button',{name:'Đổi mật khẩu & tiếp tục'}).click();
   await other.getByRole('heading',{name:'Tổng quan',exact:true}).waitFor();
   assert.equal(await other.locator('#top-class').textContent(),'Lớp 8/2');
+  assert.equal(await other.locator('[data-action=settings]').count(),0);
   await other.goto(base+'/#students');
   await other.locator('.students-table tbody tr').first().waitFor();
   assert.equal(await other.locator('.students-table tbody tr').count(),3);
@@ -131,6 +135,7 @@ try{
   app.db.prepare("UPDATE users SET role='editor' WHERE phone=?").run('0934567890');
   await secondPage.reload();await secondPage.goto(base+'/#students');await secondPage.locator('.student-map').first().waitFor();
   assert.equal(await secondPage.locator('.student-map').count(),2);
+  assert.equal(await secondPage.locator('[data-action=settings]').count(),0);
   assert.equal(await secondPage.locator('.students-table tbody tr').filter({hasText:'Nguyễn Minh An'}).locator('.linked-parent-actions').first().locator('.student-map').count(),1);
   assert.equal(await secondPage.locator('[data-action="edit-student"]').count(),1);
   assert.equal(await secondPage.locator('[data-action="delete-student"]').count(),0);
