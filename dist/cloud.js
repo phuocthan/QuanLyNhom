@@ -1,6 +1,6 @@
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export class CloudStore {
-  constructor(){this.revision=0;this.data=null;this.user=null;this.csrf='';this.busy=false;this.pending=null;this.classId='default';this.classes=[];}
+  constructor(){this.revision=0;this.data=null;this.user=null;this.csrf='';this.busy=false;this.pending=null;this.classId='default';this.classes=[];this.parentLinks={};}
   async request(path,options={}){
     let response;
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
@@ -9,24 +9,30 @@ export class CloudStore {
   }
   statePath(){return '/state?classId='+encodeURIComponent(this.classId);}
   async loadClasses(){const result=await this.request('/classes');this.classes=result.classes;return this.classes;}
-  async load(){const result=await this.request(this.statePath());this.data=result.data;this.revision=result.revision;return result;}
-  async save(data){const result=await this.request(this.statePath(),{method:'PUT',body:JSON.stringify({data,revision:this.revision})});this.data=structuredClone(data);this.revision=result.revision;this.pending=null;return result;}
+  async loadParents(){const result=await this.request('/parent-links?classId='+encodeURIComponent(this.classId));this.parentLinks=result.links;return result.links;}
+  async load(){const [result,parents]=await Promise.all([this.request(this.statePath()),this.request('/parent-links?classId='+encodeURIComponent(this.classId))]);this.data=result.data;this.revision=result.revision;this.parentLinks=parents.links;return result;}
+  async save(data){const result=await this.request(this.statePath(),{method:'PUT',body:JSON.stringify({data,revision:this.revision})});this.data=structuredClone(data);this.revision=result.revision;this.pending=null;await this.loadParents().catch(()=>{this.parentLinks={};});return result;}
   async logout(){await this.request('/auth/logout',{method:'POST',body:'{}'});location.reload();}
   async addUser(data){return this.request('/users?classId='+encodeURIComponent(this.classId),{method:'POST',body:JSON.stringify(data)});}
 }
 
 export async function connectCloud(){
   const store=new CloudStore();
-  const root=document.createElement('section');root.id='auth-root';root.setAttribute('aria-label','Đăng nhập Học Nhóm');document.body.append(root);document.body.classList.add('auth-mode');
+  const root=document.createElement('section');root.id='auth-root';root.setAttribute('aria-label','Đăng nhập Quản Lý Học Nhóm');document.body.append(root);document.body.classList.add('auth-mode');
   const fragment=new URLSearchParams(location.hash.slice(1));
   const setupKey=fragment.get('setup')||'';
   if(setupKey)history.replaceState(null,'',location.pathname+location.search);
-  root.innerHTML='<div class="auth-card"><img src="/icon.svg" width="52" height="52" alt=""><h1>Học Nhóm</h1><p>Đang kết nối dữ liệu lớp học…</p></div>';
+  root.innerHTML='<div class="auth-card"><img src="/icon.svg" width="52" height="52" alt=""><h1>Quản Lý Học Nhóm</h1><p>Đang kết nối dữ liệu lớp học…</p></div>';
   let auth;
   try{auth=await store.request('/auth/session');}catch(error){root.innerHTML=`<div class="auth-card"><h1>Chưa kết nối được</h1><p>${esc(error.message)}</p><button class="btn primary" id="auth-retry">Thử lại</button></div>`;root.querySelector('button').onclick=()=>location.reload();return new Promise(()=>{});}
   if(!auth.authenticated){
     const setup=auth.setupRequired;
-    root.innerHTML=`<div class="auth-card"><a class="auth-brand" href="/"><img src="/icon.svg" width="48" height="48" alt=""><strong>Học Nhóm</strong></a><h1>${setup?'Tạo tài khoản quản trị':'Đăng nhập'}</h1><p>${setup?'Thiết lập một lần cho không gian học nhóm riêng của bạn.':'Theo dõi lớp học, lịch học nhóm và kết nối với phụ huynh.'}</p><form id="auth-form"><div class="form-error" role="alert"></div><div class="form-grid">${setup?'<div class="field full"><label for="auth-name">Tên của bạn</label><input id="auth-name" name="name" required maxlength="100" autocomplete="name"></div>':''}<div class="field full"><label for="auth-email">${setup?'Email quản trị':'Số điện thoại'}</label><input type="${setup?'email':'text'}" id="auth-email" name="${setup?'email':'username'}" required maxlength="200" autocomplete="username" placeholder="${setup?'admin@example.com':'Số điện thoại đã được admin cấp'}"></div><div class="field full"><label for="auth-password">Mật khẩu${setup?' (ít nhất 12 ký tự)':''}</label><input type="password" id="auth-password" name="password" required ${setup?'minlength="12"':''} maxlength="200" autocomplete="${setup?'new-password':'current-password'}"></div>${setup?'<div class="field full" id="setup-key-field"><label for="auth-setup">Mã thiết lập</label><input id="auth-setup" name="setupKey" autocomplete="off" type="password"><small>Mã nằm trong đường dẫn thiết lập riêng được cung cấp khi triển khai.</small></div>':''}</div><button type="submit" class="btn primary auth-submit">${setup?'Tạo tài khoản & bắt đầu':'Đăng nhập'}</button></form><p class="auth-footnote">Phụ huynh dùng số điện thoại đã được admin thêm vào danh sách. Mật khẩu lần đầu: <strong>12345678</strong>. Bạn sẽ được yêu cầu đổi mật khẩu sau khi đăng nhập.</p><a class="admin-contact" href="https://zalo.me/0975163361" target="_blank" rel="noopener noreferrer">Liên hệ Zalo admin · 0975 163 361 ↗</a></div>`;
+    root.innerHTML=`<div class="auth-layout"><figure class="auth-school"><img src="/tay-son-school.png" width="447" height="447" alt="Trường THCS Tây Sơn"></figure><div class="auth-card"><a class="auth-brand" href="/"><img src="/icon.svg" width="48" height="48" alt=""><strong>Quản Lý Học Nhóm</strong></a><h1>${setup?'Tạo tài khoản quản trị':'Đăng nhập'}</h1>${setup?'<p>Thiết lập một lần cho không gian học nhóm riêng của bạn.</p>':''}<form id="auth-form"><div class="form-error" role="alert"></div><div class="form-grid">${setup?'<div class="field full"><label for="auth-name">Tên của bạn</label><input id="auth-name" name="name" required maxlength="100" autocomplete="name"></div>':''}<div class="field full"><label for="auth-email">${setup?'Email quản trị':'Số điện thoại'}</label><input type="${setup?'email':'text'}" id="auth-email" name="${setup?'email':'username'}" required maxlength="200" autocomplete="username" placeholder="${setup?'admin@example.com':'Số điện thoại đã được admin cấp'}"></div><div class="field full"><label for="auth-password">Mật khẩu${setup?' (ít nhất 12 ký tự)':''}</label><input type="password" id="auth-password" name="password" required ${setup?'minlength="12"':''} maxlength="200" autocomplete="${setup?'new-password':'current-password'}"></div>${setup?'<div class="field full" id="setup-key-field"><label for="auth-setup">Mã thiết lập</label><input id="auth-setup" name="setupKey" autocomplete="off" type="password"><small>Mã nằm trong đường dẫn thiết lập riêng được cung cấp khi triển khai.</small></div>':''}</div><button type="submit" class="btn primary auth-submit">${setup?'Tạo tài khoản & bắt đầu':'Đăng nhập'}</button></form>${setup?'':'<button type="button" class="auth-forgot" id="auth-forgot" aria-expanded="false" aria-controls="auth-reset-help">Quên Mật Khẩu?</button><div id="auth-reset-help" hidden><a class="admin-contact" href="https://zalo.me/0975163361" target="_blank" rel="noopener noreferrer">Liên hệ Zalo admin để đặt lại mật khẩu · 0975 163 361 ↗</a></div>'}</div></div>`;
+    const forgotButton=root.querySelector('#auth-forgot');
+    if(forgotButton)forgotButton.onclick=()=>{
+      const help=root.querySelector('#auth-reset-help'),expanded=forgotButton.getAttribute('aria-expanded')==='true';
+      help.hidden=expanded;forgotButton.setAttribute('aria-expanded',String(!expanded));
+    };
     if(setupKey&&setup){root.querySelector('[name=setupKey]').value=setupKey;root.querySelector('#setup-key-field').classList.add('hidden');}
     await new Promise(resolve=>{
       root.querySelector('form').onsubmit=async e=>{
@@ -56,7 +62,7 @@ export async function changePassword(store,form){
   const result=await store.request('/auth/password',{method:'POST',body:JSON.stringify(input)});store.user=result.user;store.csrf=result.csrfToken;
 }
 async function requirePasswordChange(store,root){
-  root.innerHTML=`<div class="auth-card"><a class="auth-brand" href="/"><img src="/icon.svg" width="48" height="48" alt=""><strong>Học Nhóm</strong></a><h1>Đổi mật khẩu lần đầu</h1><p>Chào ${esc(store.user.name)}, hãy thay mật khẩu mặc định để bắt đầu sử dụng lớp học.</p><form id="first-password-form"><div class="form-error" role="alert"></div><div class="form-grid">${passwordFields()}</div><button class="btn primary auth-submit" type="submit">Đổi mật khẩu & tiếp tục</button></form><button class="btn auth-submit" id="change-logout">Đăng xuất</button></div>`;
+  root.innerHTML=`<div class="auth-card"><a class="auth-brand" href="/"><img src="/icon.svg" width="48" height="48" alt=""><strong>Quản Lý Học Nhóm</strong></a><h1>Đổi mật khẩu lần đầu</h1><p>Chào ${esc(store.user.name)}, hãy thay mật khẩu mặc định để bắt đầu sử dụng lớp học.</p><form id="first-password-form"><div class="form-error" role="alert"></div><div class="form-grid">${passwordFields()}</div><button class="btn primary auth-submit" type="submit">Đổi mật khẩu & tiếp tục</button></form><button class="btn auth-submit" id="change-logout">Đăng xuất</button></div>`;
   root.querySelector('#change-logout').onclick=()=>store.logout();
   await new Promise(resolve=>{root.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=e.target,button=form.querySelector('button');button.disabled=true;form.querySelector('.form-error').textContent='';try{await changePassword(store,form);resolve();}catch(error){form.querySelector('.form-error').textContent=error.message;}finally{button.disabled=false;}};});
 }

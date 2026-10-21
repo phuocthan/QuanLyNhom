@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { studentParents, parentPhoneKey } from '../dist/data.js';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,7 +8,7 @@ import { openDatabase, loadState, saveState, emptyClassroom } from './database.m
 import { hashPassword, verifyPassword, createSession, readSession, publicUser, sessionCookie, safeEqual, normalizePhone } from './auth.mjs';
 
 const ROOT=fileURLToPath(new URL('../dist/',import.meta.url));
-const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.csv':'text/csv; charset=utf-8','.webmanifest':'application/manifest+json'};
+const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.csv':'text/csv; charset=utf-8','.webmanifest':'application/manifest+json'};
 export function createApp(config={}) {
   const production=config.production??process.env.NODE_ENV==='production';
   const db=openDatabase(config.databasePath||process.env.DATABASE_PATH||'.local/cung-hoc.sqlite');
@@ -74,7 +75,7 @@ export function createApp(config={}) {
         if(limited('password:'+user.id))return json(res,429,{error:'Thử quá nhiều lần. Vui lòng chờ 15 phút.'});
         if(!await verifyPassword(input.currentPassword,account.password_hash))return json(res,403,{error:'Mật khẩu hiện tại không đúng.'});
         const hash=await hashPassword(input.password);
-        db.exec('BEGIN IMMEDIATE');try{db.prepare('UPDATE users SET password_hash=?,must_change_password=0 WHERE id=?').run(hash,user.id);db.prepare('DELETE FROM auth_sessions WHERE user_id=?').run(user.id);db.exec('COMMIT');}catch(error){db.exec('ROLLBACK');throw error;}
+        db.exec('BEGIN IMMEDIATE');try{db.prepare('UPDATE users SET password_hash=?,must_change_password=0,parent_activated_at=? WHERE id=?').run(hash,new Date().toISOString(),user.id);db.prepare('DELETE FROM auth_sessions WHERE user_id=?').run(user.id);db.exec('COMMIT');}catch(error){db.exec('ROLLBACK');throw error;}
         const session=createSession(db,user.id);res.setHeader('Set-Cookie',sessionCookie(session.token,production));return json(res,200,{user:publicUser({...account,must_change_password:0}),csrfToken:session.csrf});
       }
       if(user.must_change_password)return json(res,403,{error:'Vui lòng đổi mật khẩu mặc định trước khi sử dụng.',mustChangePassword:true});
@@ -84,7 +85,7 @@ export function createApp(config={}) {
         if(user.role!=='owner'&&(input.phone!==user.phone||input.email!==publicUser(user).email))return json(res,403,{error:'Liên hệ admin để đổi số điện thoại đăng nhập.'});
         const email=user.role==='owner'?String(input.email||'').trim().toLowerCase():user.email;
         if(user.role==='owner'&&(!/^\S+@\S+\.\S+$/.test(email)||email.length>200||(input.phone&&!phone)))return json(res,400,{error:'Email hoặc số điện thoại không hợp lệ.'});
-        try{db.prepare('UPDATE users SET name=?,email=?,phone=? WHERE id=?').run(input.name.trim(),email,phone||null,user.id);}catch(error){if(error.message.includes('UNIQUE'))return json(res,409,{error:'Email hoặc số điện thoại đã được sử dụng.'});throw error;}
+        try{db.prepare('UPDATE users SET name=?,email=?,parent_activated_at=CASE WHEN phone IS ? THEN parent_activated_at ELSE NULL END,phone=? WHERE id=?').run(input.name.trim(),email,phone||null,phone||null,user.id);}catch(error){if(error.message.includes('UNIQUE'))return json(res,409,{error:'Email hoặc số điện thoại đã được sử dụng.'});throw error;}
         return json(res,200,{user:publicUser(db.prepare('SELECT * FROM users WHERE id=?').get(user.id))});
       }
       if(url.pathname==='/api/classes'&&req.method==='GET')return json(res,200,{classes:classList(user)});
@@ -96,6 +97,13 @@ export function createApp(config={}) {
       }
       const classId=url.searchParams.get('classId')||'default';
       if(url.pathname==='/api/state'&&(!db.prepare('SELECT 1 FROM class_spaces WHERE id=?').get(classId)||!canAccess(user,classId)))return json(res,403,{error:'Bạn chưa được cấp quyền vào lớp này.'});
+      if(url.pathname==='/api/parent-links'&&req.method==='GET'){
+        if(!db.prepare('SELECT 1 FROM class_spaces WHERE id=?').get(classId)||!canAccess(user,classId))return json(res,403,{error:'Bạn chưa được cấp quyền vào lớp này.'});
+        const active=db.prepare("SELECT u.id,u.phone,u.name FROM users u WHERE u.parent_activated_at IS NOT NULL AND u.must_change_password=0 AND (u.role='owner' OR EXISTS(SELECT 1 FROM class_access a WHERE a.user_id=u.id AND a.class_id=?))").all(classId);
+        const byPhone=new Map(active.map(u=>[u.phone,u])),links={};
+        for(const s of loadState(db,classId).data.students){links[s.id]=studentParents(s).flatMap(p=>{const account=byPhone.get(parentPhoneKey(p.phone));return account?[{id:account.id,name:account.name,phone:account.phone,relation:p.relation}]:[];});}
+        return json(res,200,{links});
+      }
       if(url.pathname==='/api/state'&&req.method==='GET')return json(res,200,loadState(db,classId));
       if(url.pathname==='/api/state'&&req.method==='PUT'){
         if(user.role==='viewer')return json(res,403,{error:'Tài khoản chỉ có quyền xem.'});
@@ -103,6 +111,7 @@ export function createApp(config={}) {
         if(user.role!=='owner'){
           const current=loadState(db,classId).data;
           if(input.data?.className!==current.className||input.data?.schoolName!==current.schoolName)return json(res,403,{error:'Chỉ admin có quyền đổi thông tin lớp.'});
+          if(Array.isArray(input.data?.students)&&input.data.students.some(s=>{const old=current.students.find(v=>v.id===s?.id);return JSON.stringify(studentParents(s||{}))!==JSON.stringify(studentParents(old||{}));}))return json(res,403,{error:'Chỉ admin có quyền thay đổi liên kết phụ huynh.'});
         }
         const result=saveState(db,input.data,input.revision,user.id,classId);
         if(result.error==='conflict')return json(res,409,{error:'Thiết bị khác đã cập nhật lớp. Tải bản mới trước khi sửa tiếp.',revision:result.revision});
@@ -119,7 +128,7 @@ export function createApp(config={}) {
       if(url.pathname==='/api/users/from-students'&&req.method==='POST'&&user.role==='owner'){
         if(!db.prepare('SELECT 1 FROM class_spaces WHERE id=?').get(classId))return json(res,404,{error:'Không tìm thấy lớp.'});
         const {data}=loadState(db,classId),parents=new Map();let skipped=0;
-        for(const s of data.students){const phone=normalizePhone(s.parentPhone);if(!phone||s.demo||!s.parent?.trim()){skipped++;continue;}parents.set(phone,s.parent.trim());}
+        for(const s of data.students){const entries=studentParents(s);if(!entries.length){skipped++;continue;}for(const p of entries){const phone=normalizePhone(p.phone);if(!phone||s.demo){skipped++;continue;}parents.set(phone,p.name.trim()||`${p.relation} của ${s.name}`);}}
         const hash=await hashPassword('12345678');let created=0,linked=0;
         db.exec('BEGIN IMMEDIATE');try{for(const [phone,name] of parents){let account=db.prepare('SELECT id,role FROM users WHERE phone=?').get(phone);if(!account){account={id:randomUUID()};db.prepare('INSERT INTO users(id,email,name,password_hash,role,created_at,phone,must_change_password) VALUES(?,?,?,?,?,?,?,1)').run(account.id,phone+'@phone.internal',name,hash,'viewer',new Date().toISOString(),phone);created++;}if(account.role!=='owner')linked+=db.prepare('INSERT OR IGNORE INTO class_access VALUES(?,?)').run(account.id,classId).changes;}db.exec('COMMIT');}catch(error){db.exec('ROLLBACK');throw error;}return json(res,201,{created,linked,skipped});
       }
@@ -131,7 +140,7 @@ export function createApp(config={}) {
       if(url.pathname==='/api/users/reset-password'&&req.method==='POST'&&user.role==='owner'){
         const input=await body(req),account=db.prepare('SELECT id FROM users WHERE id=? AND role!=?').get(String(input.id||''),'owner');
         if(!account)return json(res,404,{error:'Không tìm thấy tài khoản phụ huynh.'});
-        const hash=await hashPassword('12345678');db.exec('BEGIN IMMEDIATE');try{db.prepare('UPDATE users SET password_hash=?,must_change_password=1 WHERE id=?').run(hash,account.id);db.prepare('DELETE FROM auth_sessions WHERE user_id=?').run(account.id);db.exec('COMMIT');}catch(error){db.exec('ROLLBACK');throw error;}return json(res,200,{ok:true});
+        const hash=await hashPassword('12345678');db.exec('BEGIN IMMEDIATE');try{db.prepare('UPDATE users SET password_hash=?,must_change_password=1,parent_activated_at=NULL WHERE id=?').run(hash,account.id);db.prepare('DELETE FROM auth_sessions WHERE user_id=?').run(account.id);db.exec('COMMIT');}catch(error){db.exec('ROLLBACK');throw error;}return json(res,200,{ok:true});
       }
       return json(res,404,{error:'Không tìm thấy chức năng.'});
     }catch(error){if(error.code==='ENOENT')return json(res,404,{error:'Không tìm thấy tệp.'});console.error('Request failed:',error.code||error.name);if(!res.headersSent)json(res,error.status||500,{error:error.status?error.message:'Không lưu được dữ liệu. Vui lòng thử lại.'});}
@@ -140,6 +149,6 @@ export function createApp(config={}) {
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
   const {server,db}=createApp();const port=Number(process.env.PORT||5173);
-  server.listen(port,'0.0.0.0',()=>console.log(`Học Nhóm ready on port ${port}; SQLite storage enabled.`));
+  server.listen(port,'0.0.0.0',()=>console.log(`Quản Lý Học Nhóm ready on port ${port}; SQLite storage enabled.`));
   for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>server.close(()=>{db.close();process.exit(0);}));
 }

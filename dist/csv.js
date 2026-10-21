@@ -1,6 +1,6 @@
-import { fold, uid } from './data.js';
+import { fold, uid, parentPhoneKey } from './data.js';
 export const CSV_HEADERS=['Tên HS','Tên PH','Địa chỉ','SĐT HS','SĐT PH'];
-const aliases=[['tenhs','tenhocsinh','hotenhocsinh'],['tenph','tenphuhuynh','hotenphuhuynh'],['diachi','diachinha'],['sdths','sodienthoaihs','sodienthoaihocsinh'],['sdtph','sodienthoaiph','sodienthoaiphuhuynh']];
+const aliases=[['tenhs','tenhocsinh','hotenhocsinh'],['tenph','tenphuhuynh','hotenphuhuynh'],['diachi','diachinha'],['sdths','sodienthoaihs','sodienthoaihocsinh'],['sdtph','sodienthoaiph','sodienthoaiphuhuynh','sodienthoaiphuhuynh1','sdtph1','sdtcha']];
 const headerKey=s=>fold(s).replace(/[^a-z0-9]/g,'');
 export const studentKey=s=>fold(s.name.trim().replace(/\s+/g,' ')+'|'+s.parent.trim().replace(/\s+/g,' '));
 export const validPhone=s=>!s||/^(?:\+?\d[\d\s().-]{7,18}\d)$/.test(s);
@@ -31,10 +31,17 @@ export function parseStudentsCSV(input) {
   return rows.map((r,i)=>{
     if(r.length!==headers.length)throw Error(`Dòng dữ liệu ${i+2}: số cột không khớp với tiêu đề. Địa chỉ chứa dấu phẩy phải đặt trong ngoặc kép.`);
     const [name,parent,address,phone,parentPhone]=indices.map(n=>(r[n]||'').trim());
-    if(!name||!parent)throw Error(`Dòng dữ liệu ${i+2}: cần tên học sinh và tên phụ huynh.`);
+    if(!name)throw Error(`Dòng dữ liệu ${i+2}: cần tên học sinh.`);
     if([name,parent].some(v=>v.length>250)||address.length>3000)throw Error(`Dòng dữ liệu ${i+2}: tên hoặc địa chỉ quá dài.`);
     if(!validPhone(phone)||!validPhone(parentPhone))throw Error(`Dòng dữ liệu ${i+2}: số điện thoại không hợp lệ. Giữ số điện thoại ở dạng văn bản, gồm cả số 0 đầu.`);
-    const s={id:uid(),name,parent,address,phone,parentPhone,relation:'Người giám hộ',note:'',demo:/^000/.test(phone)||/^000/.test(parentPhone)};
+    const optional=(keys)=>{const index=headers.findIndex(h=>keys.includes(h));return index<0?undefined:(r[index]||'').trim();};
+    const phone2=optional(['sdtph2','sodienthoaiphuhuynh2','sdtme']);
+    const parent2=optional(['tenph2','tenphuhuynh2','hotenphuhuynh2']);
+    const relation=optional(['quanheph1','vaitrochamekhac'])||'Người giám hộ';
+    const relation2=optional(['quanheph2'])||'Người giám hộ';
+    if(phone2&&(!/^0[35789]\d{8}$/.test(parentPhoneKey(phone2))||parentPhoneKey(phone2)===parentPhoneKey(parentPhone)))throw Error(`Dòng dữ liệu ${i+2}: số phụ huynh 2 không hợp lệ hoặc trùng số phụ huynh 1.`);
+    if((parent2||'').length>250)throw Error(`Dòng dữ liệu ${i+2}: tên phụ huynh 2 quá dài.`);
+    const s={id:uid(),name,parent,address,phone,parentPhone,relation,note:'',demo:/^000/.test(phone)||/^000/.test(parentPhone),...(phone2===undefined?{}:{parent2:parent2||'',parentPhone2:phone2,relation2})};
     const key=studentKey(s);if(seen.has(key))throw Error(`Dòng dữ liệu ${i+2}: trùng học sinh và phụ huynh trong cùng tệp.`);seen.add(key);return s;
   });
 }

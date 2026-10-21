@@ -17,6 +17,8 @@ try{
   const errors=[],owner=await browser.newContext({viewport:{width:1440,height:1050}}),page=await owner.newPage();
   page.on('pageerror',error=>errors.push(error.message));
   await page.goto(base);
+  await page.locator('.auth-school img').waitFor();
+  assert.equal(await page.locator('.auth-school img').evaluate(img=>img.complete&&img.naturalWidth>0),true);
   await page.locator('#auth-name').fill('Admin thử nghiệm');
   await page.locator('#auth-email').fill('owner@example.test');
   await page.locator('#auth-password').fill('Owner-test-password-123');
@@ -36,11 +38,13 @@ try{
   await page.locator('#top-class').filter({hasText:'Lớp 8/2'}).waitFor();
   await page.goto(base+'/#students');
   await page.getByRole('button',{name:'Nhập CSV',exact:true}).click();
-  const csv='Tên HS,Tên PH,Địa chỉ,SĐT HS,SĐT PH\nNguyễn Minh An,Nguyễn Thu Hương,Đà Nẵng,,0912345678\nTrần Gia Bảo,Trần Hoàng Long,Đà Nẵng,,0987654321';
+  const csv='Tên HS,Tên PH,Địa chỉ,SĐT HS,SĐT PH,Tên PH 2,SĐT PH 2,Quan hệ PH 1,Quan hệ PH 2\nNguyễn Minh An,Nguyễn Thu Hương,Đà Nẵng,,0912345678,Nguyễn Minh Quang,0934567890,Mẹ,Bố\nTrần Gia Bảo,Trần Hoàng Long,Đà Nẵng,,0987654321,,,Bố,';
   await page.locator('#csv-file').setInputFiles({name:'class.csv',mimeType:'text/csv',buffer:Buffer.from('\uFEFF'+csv)});
   await page.getByRole('button',{name:'Nhập danh sách',exact:true}).click();
   await page.locator('.local-indicator').filter({hasText:'Đã đồng bộ'}).waitFor();
   assert.equal(await page.locator('.students-table tbody tr').count(),2);
+  assert.equal(await page.locator('.parent-info').filter({hasText:'Nguyễn Thu Hương'}).count(),0);
+  assert.equal(await page.locator('.parent-info').filter({hasText:'Nguyễn Minh Quang'}).count(),0);
   await page.goto(base+'/#profile');
   await page.getByRole('button',{name:'Quản lý phụ huynh',exact:true}).click();
   await page.getByRole('button',{name:'Cấp tài khoản từ danh sách lớp',exact:true}).click();
@@ -81,6 +85,21 @@ try{
   await other.goto(base+'/#students');
   await other.locator('.students-table tbody tr').first().waitFor();
   assert.equal(await other.locator('.students-table tbody tr').count(),2);
+  assert.equal(await other.locator('.parent-info').filter({hasText:'Nguyễn Thu Hương'}).count(),1);
+  assert.equal(await other.locator('.parent-info').filter({hasText:'Nguyễn Minh Quang'}).count(),0);
+  const second=await browser.newContext(),secondPage=await second.newPage();
+  await secondPage.goto(base);await secondPage.locator('#auth-email').fill('0934567890');await secondPage.locator('#auth-password').fill('12345678');
+  await secondPage.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+  await secondPage.getByRole('heading',{name:'Đổi mật khẩu lần đầu'}).waitFor();
+  await other.reload();await other.locator('.students-table tbody tr').first().waitFor();
+  assert.equal(await other.locator('.parent-info').filter({hasText:'Nguyễn Minh Quang'}).count(),0);
+  await secondPage.locator('#current-password').fill('12345678');await secondPage.locator('#new-password').fill('Second-parent-password');await secondPage.locator('#confirm-password').fill('Second-parent-password');
+  await secondPage.getByRole('button',{name:'Đổi mật khẩu & tiếp tục'}).click();await secondPage.locator('main h1').waitFor();
+  await other.bringToFront();
+  await other.locator('.parent-info').filter({hasText:'Nguyễn Minh Quang'}).waitFor({timeout:22000});
+  assert.equal(await other.locator('.parent-info').filter({hasText:'Nguyễn Thu Hương'}).count(),1);
+  await other.screenshot({path:'artifacts/hoc-nhom-two-parents-mobile.png',fullPage:true});
+  await second.close();
   await other.getByRole('button',{name:'Thêm học sinh',exact:true}).click();
   await other.locator('#toast').filter({hasText:'chỉ có quyền xem'}).waitFor();
   await other.goto(base+'/#profile');
@@ -108,5 +127,5 @@ try{
   await other.locator('main h1').waitFor();
   assert.equal(await other.locator('#first-password-form').count(),0);
   assert.deepEqual(errors,[]);
-  console.log('PASS admin profile, create/switch classes, CSV, bulk and manual parent accounts, phone login, forced password change/reload, viewer enforcement, profile persistence, re-login and responsive 1440/768/390/320px; no JS errors.');
+  console.log('PASS school image, two independent parent activations and live refresh, admin profile, create/switch classes, CSV, bulk and manual parent accounts, phone login, forced password change/reload, viewer enforcement, profile persistence, re-login and responsive 1440/768/390/320px; no JS errors.');
 }finally{if(browser)await browser.close();await new Promise(resolve=>app.server.close(resolve));app.db.close();}

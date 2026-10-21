@@ -46,6 +46,15 @@ export function openDatabase(filename) {
       db.exec('COMMIT');
     }catch(error){db.exec('ROLLBACK');throw error;}
   }
+  if(!db.prepare('SELECT version FROM schema_migrations WHERE version=4').get()){
+    db.exec('BEGIN IMMEDIATE');
+    try{
+      db.exec(`ALTER TABLE users ADD COLUMN parent_activated_at TEXT;
+        UPDATE users SET parent_activated_at=created_at WHERE role!='owner' AND phone IS NOT NULL AND must_change_password=0 AND email LIKE '%@phone.internal';
+        INSERT INTO schema_migrations VALUES(4,datetime('now'));`);
+      db.exec('COMMIT');
+    }catch(error){db.exec('ROLLBACK');throw error;}
+  }
   return db;
 }
 

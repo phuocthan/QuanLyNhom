@@ -1,4 +1,4 @@
-# Học Nhóm
+# Quản Lý Học Nhóm
 
 Ứng dụng cho phụ huynh quản lý các nhóm học có thành viên thay đổi theo chuyên đề.
 
@@ -29,7 +29,7 @@ Rà kế hoạch: tránh trang landing, tránh biểu đồ và ảnh trang trí
 
 ## Tài khoản và nhiều lớp
 
-Trang đăng nhập dùng tên Học Nhóm, số điện thoại/email admin, mật khẩu và liên hệ Zalo admin 0975 163 361. Phụ huynh được cấp mật khẩu lần đầu 12345678 và phải đổi trước khi vào lớp. Hồ sơ admin có thông tin cá nhân, đổi mật khẩu và lối vào quản lý lớp/phụ huynh. Lớp được chọn ở sidebar desktop hoặc tên lớp trong header mobile.
+Trang đăng nhập dùng tên Quản Lý Học Nhóm, số điện thoại/email admin, mật khẩu và liên hệ Zalo admin 0975 163 361. Phụ huynh được cấp mật khẩu lần đầu 12345678 và phải đổi trước khi vào lớp. Hồ sơ admin có thông tin cá nhân, đổi mật khẩu và lối vào quản lý lớp/phụ huynh. Lớp được chọn ở sidebar desktop hoặc tên lớp trong header mobile.
 
 ## Giao diện tiết chế
 
@@ -42,3 +42,9 @@ Token chính: giấy trắng #ffffff, nền #f6f7f8, chữ #253b3b, chữ phụ 
 Tham khảo đã đọc:
 - https://skills.sh/dammyjay93/interface-design/interface-design
 - https://skills.sh/pbakaus/impeccable/quieter
+
+Trang đăng nhập hiển thị ảnh THCS Tây Sơn do chủ dự án cung cấp: phía trên form trên cả desktop và mobile, cùng chiều rộng với form, giữ nguyên tỉ lệ và nội dung ảnh. Danh sách học sinh hiển thị tối đa hai phụ huynh đã kích hoạt, theo thứ tự khai báo, với tên hồ sơ, quan hệ và nút liên hệ riêng.
+
+## Bảng màu tham khảo GreenEdu — 21/10/2026
+
+Lấy màu từ src/garden.css, src/forest-theme.css và src/redesign.css của dự án SangKienKn; chỉ tham khảo, không thay đổi dự án đó. Xanh rêu #315d3e, xanh đậm #153f2c, nền kem #faf9f3, thẻ #fffefa, chữ #203f2c. Header/sidebar/mobile nav cùng màu xanh ô liu nhạt #eaf0df. Bốn màu phụ: lá #e8f4de, mật ong #fff1cf, trời #e5f3f8, hoa #f2eafa. Thống kê dùng nền lá/mật ong/đào/ô liu tương tự GreenEdu; chuyên đề vẫn giữ màu riêng, áp dụng nhẹ lên nền/viền và buổi học tương ứng. Giữ bố cục đăng nhập đã chọn, không sao chép bố cục/sidebar tối hoặc tài sản trường của GreenEdu.

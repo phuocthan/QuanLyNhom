@@ -1,4 +1,4 @@
-# Triển khai Học Nhóm
+# Triển khai Quản Lý Học Nhóm
 
 ## Cấu hình hiện tại
 
@@ -45,3 +45,7 @@ Chạy local bằng `npm run dev` với database `.local/cung-hoc.sqlite`; đây
 `scripts/test_cloud_ui.py` kiểm tra đăng nhập, lưu CSV vào database, hai trình duyệt, quyền chỉ xem, xung đột revision và giao diện gọn tại1440/768/390/320px. Chỉ chạy với server local ở cổng5188 và `DATABASE_PATH` trỏ đến tệp thử mới. Các bộ `scripts/test_ui.py` và `scripts/test_sessions.py` kiểm tra tương thích bản static tại5173.
 
 Kiểm tra bổ sung `node scripts/test_accounts_ui.mjs`: server tự tạo SQLite trong bộ nhớ và port tạm, kiểm thử luồng admin/nhiều lớp/CSV/phụ huynh/đổi mật khẩu và responsive. `PLAYWRIGHT_CHANNEL` có thể chọn trình duyệt đã cài; `PLAYWRIGHT_MODULE` có thể trỏ tới module Playwright ngoài dự án.
+
+Migration v4 bổ sung users.parent_activated_at, không xóa/reset dữ liệu. Tài khoản phụ huynh theo số điện thoại đã đổi mật khẩu trước nâng cấp được giữ trạng thái kích hoạt. API /api/parent-links?classId=... chỉ trả tối đa hai phụ huynh đã kích hoạt và có quyền vào lớp; trạng thái này không lưu trong JSON lớp và không phụ thuộc revision lớp. Hai liên hệ học sinh lưu ở parent/parentPhone/relation và parent2/parentPhone2/relation2. Chỉ admin được đổi số liên kết.
+
+Trang đăng nhập dùng ảnh trường trong dist/tay-son-school.png.

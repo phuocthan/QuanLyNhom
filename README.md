@@ -1,4 +1,4 @@
-# Học Nhóm
+# Quản Lý Học Nhóm
 
 Ứng dụng web tiếng Việt quản lý nhiều lớp và nhóm học trên điện thoại, máy tính. Lớp hiện có **7/14, THCS Tây Sơn - Đà Nẵng** được giữ nguyên khi nâng cấp.
 
@@ -23,6 +23,14 @@ Mở http://localhost:5173 và tạo tài khoản quản trị lần đầu. Dat
 - Admin toàn quyền trên mọi lớp. Phụ huynh chỉ vào được lớp đã cấp; quyền chỉnh sửa không bao gồm quản lý tài khoản, tạo lớp hoặc đổi tên lớp/trường. Quyền xem/chỉnh sửa áp dụng cho tất cả lớp đã cấp của một tài khoản.
 - Trang đăng nhập có liên hệ [Zalo admin · 0975 163 361](https://zalo.me/0975163361).
 - Tài khoản email cũ và phiên đăng nhập được giữ khi migration; tài khoản phụ huynh mới dùng số điện thoại. Bản static cũ chỉ phục vụ xuất dữ liệu, không có quản lý nhiều lớp/tài khoản.
+
+## Hai phụ huynh cho một học sinh
+
+Admin mở Học sinh → Sửa, nhập tối đa hai số ở Phụ huynh 1/Phụ huynh 2, tên và quan hệ. Có thể bỏ trống tên phụ huynh khi chưa có; số đăng nhập không được trùng nhau. Sau đó dùng Hồ sơ admin → Quản lý phụ huynh → Cấp tài khoản từ danh sách lớp để cấp cho cả hai số. Cũng có thể tạo tài khoản từng người bằng đúng số đã khai báo.
+
+Chỉ khi tài khoản đăng nhập và đổi mật khẩu mặc định, tên trong hồ sơ tài khoản cùng số điện thoại mới hiển thị cạnh học sinh, trong thành viên nhóm và lựa chọn chủ nhà. Mỗi phụ huynh kích hoạt độc lập; một số có thể liên kết nhiều con. Cần quyền vào đúng lớp. Đặt lại mật khẩu sẽ ẩn liên kết cho đến khi phụ huynh đổi lại mật khẩu. Liên kết cập nhật tối đa sau 15 giây khi không mở biểu mẫu.
+
+CSV cũ 5 cột vẫn dùng được. Có thể thêm Tên PH 2, SĐT PH 2, Quan hệ PH 1, Quan hệ PH 2. Tiêu đề Số Điện Thoại Phụ Huynh 1/2 cũng được nhận diện. Nếu CSV không có cột phụ huynh 2 thì giữ dữ liệu thứ hai đã lưu. Bản JSON giữ đủ hai phụ huynh.
 
 ## Có thể làm gì?
 
