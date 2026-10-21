@@ -51,7 +51,7 @@ try{
   await page.getByRole('button',{name:'Cấp tài khoản',exact:true}).click();
   await page.locator('.account-list').filter({hasText:'0912345678'}).waitFor();
   const form=page.locator('#user-form');
-  await form.locator('[name=name]').fill('Phụ huynh thêm riêng');
+  await form.locator('[name=studentName]').fill('Học sinh thêm riêng');
   await form.locator('[name=phone]').fill('0901234567');
   await form.getByRole('button',{name:'Tạo tài khoản',exact:true}).click();
   await page.locator('.account-list').filter({hasText:'0901234567'}).waitFor();
@@ -84,7 +84,7 @@ try{
   assert.equal(await other.locator('#top-class').textContent(),'Lớp 8/2');
   await other.goto(base+'/#students');
   await other.locator('.students-table tbody tr').first().waitFor();
-  assert.equal(await other.locator('.students-table tbody tr').count(),2);
+  assert.equal(await other.locator('.students-table tbody tr').count(),3);
   assert.equal(await other.locator('.parent-info').filter({hasText:'Nguyễn Thu Hương'}).count(),1);
   assert.equal(await other.locator('.parent-info').filter({hasText:'Nguyễn Minh Quang'}).count(),0);
   const second=await browser.newContext(),secondPage=await second.newPage();

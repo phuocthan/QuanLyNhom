@@ -37,7 +37,7 @@ test('private SQLite API: setup, auth, role enforcement, CSRF, revision conflict
     assert.equal((await request('/api/state','PUT',payload,owner)).status,409);
     assert.equal((await request('/api/state','PUT',{data:{},revision:1},owner)).status,400);
     state=await request('/api/state','GET',undefined,owner);assert.deepEqual(state.body.data,data);
-    const viewer={name:'Viewer',phone:'0912345678',role:'viewer'};
+    const viewer={studentName:'Học sinh Viewer',phone:'0912345678',role:'viewer'};
     assert.equal((await request('/api/users','POST',viewer,owner)).status,201);
     const firstLogin=await request('/api/auth/login','POST',{username:viewer.phone,password:'12345678'});
     const firstAccount={cookie:firstLogin.cookie,csrf:firstLogin.body.csrfToken};
@@ -53,10 +53,12 @@ test('private SQLite API: setup, auth, role enforcement, CSRF, revision conflict
     const extraClass=await request('/api/classes','POST',{name:'Lớp lưu bền',schoolName:'Trường thử nghiệm'},owner);
     const extraRoute='/api/state?classId='+extraClass.body.id;
     assert.equal((await request(extraRoute,'PUT',{data,revision:0},owner)).status,200);
+    const enrolled=(await request('/api/state','GET',undefined,owner)).body;
+    assert.equal(enrolled.data.students.length,21);assert.equal(enrolled.data.students[20].name,viewer.studentName);
     // The same SQLite file survives restarting the application; sessions also remain valid.
     await new Promise(resolve=>app.server.close(resolve));app.db.close();
     app=createApp({databasePath,setupKey:'test-only-setup-key'});base=await start();
-    const restored=await request('/api/state','GET',undefined,owner);assert.equal(restored.status,200);assert.deepEqual(restored.body.data,data);assert.equal(restored.body.revision,1);
+    const restored=await request('/api/state','GET',undefined,owner);assert.equal(restored.status,200);assert.deepEqual(restored.body.data,enrolled.data);assert.equal(restored.body.revision,enrolled.revision);
     const extraRestored=await request(extraRoute,'GET',undefined,owner);assert.deepEqual(extraRestored.body.data,data);assert.equal(extraRestored.body.revision,1);
     assert.equal(app.db.prepare('SELECT count(*) AS total FROM study_sessions').get().total,7);
     const hashes=app.db.prepare('SELECT password_hash FROM users').all();assert(hashes.every(r=>!r.password_hash.includes('password')));

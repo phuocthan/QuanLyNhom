@@ -22,7 +22,7 @@ Admin quản lý nhiều lớp tại **Quản lý lớp** và cập nhật thôn
 
 ## Dữ liệu
 
-Các bảng: `students`, `topics`, `study_groups`, `group_members`, `study_sessions`, `classroom`, `users`, `auth_sessions`, `schema_migrations`, `audit_log`, `class_spaces`, `class_access`. Migration v3 bổ sung số điện thoại, cờ bắt buộc đổi mật khẩu và quyền lớp. Lớp cũ giữ các bảng hiện có với ID `default`; lớp mới lưu state JSON và revision riêng trong `class_spaces`. API kiểm tra quyền lớp ở server trước khi đọc/ghi. Tài khoản email và phiên cũ được giữ; phụ huynh cũ được cấp lớp `default`, không bị đặt lại mật khẩu.
+Các bảng: `students`, `topics`, `study_groups`, `group_members`, `study_sessions`, `classroom`, `users`, `auth_sessions`, `schema_migrations`, `audit_log`, `class_spaces`, `class_access`. Migration v3 bổ sung số điện thoại, cờ bắt buộc đổi mật khẩu và quyền lớp. Migration v5 bổ sung học sinh còn thiếu từ các tài khoản đơn lẻ đã tạo trước bản sửa; chỉ chạy một lần để không khôi phục học sinh được chủ động xóa về sau. Tạo tài khoản và cập nhật danh sách học sinh dùng chung transaction; revision được tăng để ngăn thiết bị cũ ghi đè. Migration v4 thêm họ tên học sinh, họ tên phụ huynh và mối quan hệ vào tài khoản; giữ nguyên mật khẩu, phiên đăng nhập và quyền lớp hiện có. Lớp cũ giữ các bảng hiện có với ID `default`; lớp mới lưu state JSON và revision riêng trong `class_spaces`. API kiểm tra quyền lớp ở server trước khi đọc/ghi. Tài khoản email và phiên cũ được giữ; phụ huynh cũ được cấp lớp `default`, không bị đặt lại mật khẩu.
 
 Migration bổ sung schema, không reset dữ liệu. Database mới rỗng, không tự seed demo trên production. API dùng transaction và revision: nếu một thiết bị đã lưu trước, thiết bị còn lại nhận xung đột, giữ bản tạm trong tab để xuất JSON hoặc tải dữ liệu mới. Chỉ báo lưu thành công sau phản hồi server. Khi mất mạng có nút thử lại; đóng tab khi chưa lưu sẽ cảnh báo.
 
@@ -46,6 +46,6 @@ Chạy local bằng `npm run dev` với database `.local/cung-hoc.sqlite`; đây
 
 Kiểm tra bổ sung `node scripts/test_accounts_ui.mjs`: server tự tạo SQLite trong bộ nhớ và port tạm, kiểm thử luồng admin/nhiều lớp/CSV/phụ huynh/đổi mật khẩu và responsive. `PLAYWRIGHT_CHANNEL` có thể chọn trình duyệt đã cài; `PLAYWRIGHT_MODULE` có thể trỏ tới module Playwright ngoài dự án.
 
-Migration v4 bổ sung users.parent_activated_at, không xóa/reset dữ liệu. Tài khoản phụ huynh theo số điện thoại đã đổi mật khẩu trước nâng cấp được giữ trạng thái kích hoạt. API /api/parent-links?classId=... chỉ trả tối đa hai phụ huynh đã kích hoạt và có quyền vào lớp; trạng thái này không lưu trong JSON lớp và không phụ thuộc revision lớp. Hai liên hệ học sinh lưu ở parent/parentPhone/relation và parent2/parentPhone2/relation2. Chỉ admin được đổi số liên kết.
+Migration v6 bổ sung users.parent_activated_at, không xóa/reset dữ liệu. Tài khoản phụ huynh theo số điện thoại đã đổi mật khẩu trước nâng cấp được giữ trạng thái kích hoạt. API /api/parent-links?classId=... chỉ trả tối đa hai phụ huynh đã kích hoạt và có quyền vào lớp; trạng thái này không lưu trong JSON lớp và không phụ thuộc revision lớp. Hai liên hệ học sinh lưu ở parent/parentPhone/relation và parent2/parentPhone2/relation2. Chỉ admin được đổi số liên kết.
 
 Trang đăng nhập dùng ảnh trường trong dist/tay-son-school.png.
