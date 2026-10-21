@@ -64,3 +64,5 @@ Quyền danh sách học sinh: chỉ admin thêm/xóa/nhập và đổi liên k�
 Tạo chuyên đề/nhóm: giữ biểu mẫu trong khi lưu, chỉ đóng sau khi máy chủ xác nhận thành công; thông báo ghi rõ tên vừa tạo. Tạo nhóm không tự mở lại popup chi tiết.
 
 Vai trò học tập: admin gán Lớp Phó học tập 1/2 trong biểu mẫu sửa học sinh; mỗi vị trí chỉ có một em. Tài khoản liên kết với học sinh nhận quyền theo số phụ huynh. Hai lớp phó tạo/sửa chuyên đề, tạo nhóm và chuyển trưởng/phó nhóm. Nhóm có leaderId và deputyLeaderId, là hai thành viên khác nhau; trưởng/phó nhóm chỉ sửa nhóm mình, thành viên khác chỉ xem. Admin luôn có toàn quyền. Nhóm cũ chưa phân công được giữ nguyên để admin/lớp phó chọn người phụ trách.
+
+SĐT của cả hai phụ huynh và địa chỉ đã khai báo luôn được chia sẻ trong lớp, kèm nút gọi/Zalo/bản đồ cho mọi tài khoản có quyền vào lớp; tên tài khoản phụ huynh vẫn chỉ hiển thị khi kích hoạt. Hồ sơ cá nhân có Thông tin gia đình theo từng con: hai SĐT chỉ đọc, địa chỉ sửa và lưu riêng qua PATCH students.

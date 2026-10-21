@@ -371,3 +371,5 @@ body:not(.cloud-mode) .class-picker,body:not(.cloud-mode) .header-logout{display
 @media(max-width:760px){.students-table .record-actions{grid-row:auto;grid-column:1/-1;justify-self:end}.students-table .parent-info{margin-bottom:12px}}
 
 .student-role-tag{display:inline-block;margin:5px 0;padding:3px 7px;border-radius:5px;background:#edf3de;color:#315d3e;font-size:11px;font-weight:600}.group-leadership-summary{padding:14px 16px;margin:18px 0;background:#f5f7ed;border:1px solid var(--classroom-line);border-radius:9px}.group-leadership-summary p{font-size:14px}.group-leadership-summary .btn{margin-top:10px}
+
+.family-panel{grid-column:1/-1}.family-address-form{margin-top:22px;padding-top:20px;border-top:1px solid var(--classroom-line)}.family-address-form h3{font-size:16px;margin-bottom:16px}.family-address-form .btn{margin-top:18px}.family-address-form input[readonly]{background:var(--classroom-inset);color:var(--classroom-secondary);cursor:default}

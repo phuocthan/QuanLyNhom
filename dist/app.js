@@ -1,4 +1,4 @@
-import {canCreateLearning,canManageGroup,canTransferGroup} from './permissions.js';
+import {canCreateLearning,canManageGroup,canTransferGroup,linkedToStudent} from './permissions.js';
 import { studentParents, parentPhoneKey, STORAGE_KEY, localDate, uid, fold, createDemo, validateData, normalizeData, validDate, snapshotSession, allSessions } from './data.js';
 import { parseStudentsCSV, studentKey } from './csv.js';
 import { connectCloud, passwordFields, changePassword } from './cloud.js';
@@ -83,10 +83,11 @@ function openLeadershipForm(id){const g=group(id);if(!mayTransferGroup(g))return
 const canEditStudent=s=>canManageStudents()||!!(s&&cloud.user.phone&&studentParents(s).some(p=>parentPhoneKey(p.phone)===cloud.user.phone));
 const visibleParents=s=>!s?[]:cloud?(cloud.parentLinks[s.id]||[]).filter(p=>studentParents(s).some(c=>parentPhoneKey(c.phone)===p.phone)):studentParents(s);
 const parentNames=s=>visibleParents(s).map(p=>p.name||p.relation).join(', ')||'Chưa có phụ huynh kích hoạt';
-const parentSearch=s=>(cloud?.user.role==='owner'?studentParents(s):visibleParents(s)).map(p=>p.name+' '+p.phone).join(' ');
-const linkedParentInfo=s=>{const map=studentMapLink(s);return visibleParents(s).map((p,i)=>`<div class="linked-parent"><div class="linked-parent-text"><strong>${esc(p.name)} <span class="optional">(${esc(p.relation)})</span></strong><small class="phone-text">${esc(p.phone)}</small></div><div class="linked-parent-actions">${contacts(p.phone,p.name)}${i===0?map:''}</div></div>`).join('')||`<span class="helper">Chưa có phụ huynh kích hoạt</span>${map?`<div class="linked-parent-actions">${map}</div>`:''}`;};
-const studentMapLink=s=>cloud&&['owner','editor'].includes(cloud.user.role)&&s.address?.trim()?`<a class="icon-btn student-map" href="https://www.google.com/maps/search/?api=1&amp;query=${esc(encodeURIComponent(s.address.trim()))}" target="_blank" rel="noopener noreferrer" aria-label="Mở bản đồ nhà của ${esc(s.name)}" title="Mở địa chỉ trên Google Maps">${icon('pin')}</a>`:'';
-const linkedParentContacts=s=>visibleParents(s).map(p=>`<div class="linked-parent-actions">${contacts(p.phone,p.name)}</div>`).join('')||'<span class="helper">—</span>';
+const sharedParents=s=>studentParents(s).map(p=>{const active=visibleParents(s).find(a=>a.phone===parentPhoneKey(p.phone));return {...p,name:cloud?(active?.name||''):p.name,phone:parentPhoneKey(p.phone)};});
+const parentSearch=s=>(cloud?.user.role==='owner'?studentParents(s):sharedParents(s)).map(p=>p.name+' '+p.phone).join(' ');
+const linkedParentInfo=s=>{const map=studentMapLink(s);return sharedParents(s).map((p,i)=>`<div class="linked-parent"><div class="linked-parent-text"><strong>${p.name?`${esc(p.name)} <span class="optional">(${esc(p.relation)})</span>`:esc(p.relation)}</strong><small class="phone-text">${esc(p.phone)}</small></div><div class="linked-parent-actions">${contacts(p.phone,p.name||p.relation+' của '+s.name)}${i===0?map:''}</div></div>`).join('')||`<span class="helper">Chưa có số điện thoại phụ huynh</span>${map?`<div class="linked-parent-actions">${map}</div>`:''}`;};
+const studentMapLink=s=>s.address?.trim()?`<a class="icon-btn student-map" href="https://www.google.com/maps/search/?api=1&amp;query=${esc(encodeURIComponent(s.address.trim()))}" target="_blank" rel="noopener noreferrer" aria-label="Mở bản đồ nhà của ${esc(s.name)}" title="Mở địa chỉ trên Google Maps">${icon('pin')}</a>`:'';
+const linkedParentContacts=s=>sharedParents(s).map(p=>`<div class="linked-parent-actions">${contacts(p.phone,p.name||p.relation+' của '+s.name)}</div>`).join('')||'<span class="helper">—</span>';
 
 const topic = id=>db.topics.find(t=>t.id===id);
 const group = id=>db.groups.find(g=>g.id===id);
@@ -364,9 +365,14 @@ async function openUserManagement(){
   }catch(error){notify(error.message);}
 }
 function classChecks(selected){return cloud.classes.map(c=>`<label><input type="checkbox" name="classIds" value="${esc(c.id)}" ${selected.includes(c.id)?'checked':''}> ${esc(c.name)} · ${esc(c.schoolName)}</label>`).join('');}
+function familyProfile(){
+  const children=db.students.filter(s=>linkedToStudent(s,cloud.user));
+  if(!children.length)return '';
+  return `<section class="profile-panel family-panel"><h2>Thông tin gia đình</h2><p class="helper">${esc(db.className)} · Số điện thoại dùng cho tài khoản nên chỉ admin được thay đổi.</p>${children.map(s=>`<form class="family-address-form" data-id="${esc(s.id)}"><h3>${esc(s.name)}</h3><div class="form-error" role="alert"></div><div class="form-grid">${[['parentPhone',s.relation||'Phụ huynh 1'],['parentPhone2',s.relation2||'Phụ huynh 2']].map(([key,label])=>`<div class="field"><label for="family-${esc(s.id)}-${key}">SĐT ${esc(label)}</label><input id="family-${esc(s.id)}-${key}" type="tel" name="${key}" value="${esc(s[key]||'')}" readonly aria-readonly="true" placeholder="Chưa khai báo"></div>`).join('')}<div class="field full"><label for="family-${esc(s.id)}-address">Địa chỉ nhà</label><input id="family-${esc(s.id)}-address" name="address" value="${esc(s.address||'')}" maxlength="250" autocomplete="street-address" placeholder="Số nhà, đường, phường, tỉnh/thành phố"></div></div><button class="btn primary" type="submit">Lưu địa chỉ</button></form>`).join('')}</section>`;
+}
 function renderProfile(){
   const u=cloud.user,admin=u.role==='owner';
-  el.innerHTML=heading(admin?'Hồ sơ admin':'Hồ sơ cá nhân','')+`<div class="profile-grid"><section class="profile-panel"><div class="profile-title">${avatar(u.name)}<div><h2>${esc(u.name)}</h2><p>${admin?'Quản trị viên · Toàn quyền':'Phụ huynh · '+(u.role==='viewer'?'Chỉ xem':'Cùng chỉnh sửa')}</p></div></div><form id="profile-form"><div class="form-error" role="alert"></div><div class="form-grid">${field('Họ và tên','name',u.name,'text',true,true)}${admin?field('Email đăng nhập','email',u.email,'email',true,true)+field('Số điện thoại','phone',u.phone,'tel',false,true):`<p class="helper full">Số điện thoại đăng nhập: <strong>${esc(u.phone||u.email)}</strong>. Liên hệ admin khi cần thay đổi.</p>`}</div><button class="btn primary auth-submit" type="submit">Lưu hồ sơ</button></form><div class="settings-actions">${admin?'<a class="btn soft" href="#classes">Quản lý lớp</a><button class="btn soft" data-action="manage-users">Quản lý phụ huynh</button>':''}<button class="btn" data-action="logout">Đăng xuất</button></div></section><section class="profile-panel password-panel"><h2>Đổi mật khẩu</h2><p class="helper">Đặt mật khẩu riêng có ít nhất 8 ký tự.</p><form id="password-form"><div class="form-error" role="alert"></div><div class="form-grid">${passwordFields()}</div><button class="btn primary auth-submit" type="submit">Lưu mật khẩu mới</button></form></section></div>`;
+  el.innerHTML=heading(admin?'Hồ sơ admin':'Hồ sơ cá nhân','')+`<div class="profile-grid">${familyProfile()}<section class="profile-panel"><div class="profile-title">${avatar(u.name)}<div><h2>${esc(u.name)}</h2><p>${admin?'Quản trị viên · Toàn quyền':'Phụ huynh · '+(u.role==='viewer'?'Chỉ xem':'Cùng chỉnh sửa')}</p></div></div><form id="profile-form"><div class="form-error" role="alert"></div><div class="form-grid">${field('Họ và tên','name',u.name,'text',true,true)}${admin?field('Email đăng nhập','email',u.email,'email',true,true)+field('Số điện thoại','phone',u.phone,'tel',false,true):`<p class="helper full">Số điện thoại đăng nhập: <strong>${esc(u.phone||u.email)}</strong>. Liên hệ admin khi cần thay đổi.</p>`}</div><button class="btn primary auth-submit" type="submit">Lưu hồ sơ</button></form><div class="settings-actions">${admin?'<a class="btn soft" href="#classes">Quản lý lớp</a><button class="btn soft" data-action="manage-users">Quản lý phụ huynh</button>':''}<button class="btn" data-action="logout">Đăng xuất</button></div></section><section class="profile-panel password-panel"><h2>Đổi mật khẩu</h2><p class="helper">Đặt mật khẩu riêng có ít nhất 8 ký tự.</p><form id="password-form"><div class="form-error" role="alert"></div><div class="form-grid">${passwordFields()}</div><button class="btn primary auth-submit" type="submit">Lưu mật khẩu mới</button></form></section></div>`;
 }
 function renderClasses(){
   el.innerHTML=heading(cloud.user.role==='owner'?'Quản lý lớp':'Lớp của tôi','',cloud.user.role==='owner'?'create-class':'', 'Thêm lớp')+`<div class="class-grid">${cloud.classes.map(c=>`<article class="class-space" data-current="${c.id===cloud.classId}"><span class="class-label">${c.id===cloud.classId?'Đang xem':'Lớp học'}</span><h2>${esc(c.id===cloud.classId?db.className:c.name)}</h2><p>${esc(c.id===cloud.classId?db.schoolName:c.schoolName)}</p><p>${c.id===cloud.classId?db.students.length:c.students} học sinh</p><button class="btn primary" data-action="open-class" data-id="${esc(c.id)}">Xem lớp ${icon('arrow')}</button></article>`).join('')}</div>`;
@@ -501,16 +507,18 @@ document.addEventListener('change',async e=>{
 });
 document.addEventListener('submit',async e=>{
   const special=e.target;
-  if(['profile-form','password-form','create-class-form'].includes(special.id)||special.classList.contains('access-form')){
+  if(['profile-form','password-form','create-class-form'].includes(special.id)||special.classList.contains('access-form')||special.classList.contains('family-address-form')){
     e.preventDefault();if(!cloud||cloud.busy||cloud.pending)return;
     const button=special.querySelector('button[type=submit]'),input=Object.fromEntries(new FormData(special));button.disabled=true;
+    const familyForm=special.classList.contains('family-address-form');if(familyForm)cloud.busy=true;
     try{
-      if(special.id==='password-form'){await changePassword(cloud,special);special.reset();dirty=false;notify('Đã đổi mật khẩu. Các phiên đăng nhập khác đã kết thúc.');}
+      if(familyForm){await cloud.request('/students?classId='+encodeURIComponent(cloud.classId),{method:'PATCH',body:JSON.stringify({id:special.dataset.id,revision:cloud.revision,changes:{address:String(input.address||'').trim()}})});await cloud.load();db=normalizeData(cloud.data);dirty=false;render();notify('Đã cập nhật địa chỉ gia đình.');}
+      else if(special.id==='password-form'){await changePassword(cloud,special);special.reset();dirty=false;notify('Đã đổi mật khẩu. Các phiên đăng nhập khác đã kết thúc.');}
       else if(special.id==='profile-form'){const result=await cloud.request('/profile',{method:'PUT',body:JSON.stringify({...input,phone:input.phone??cloud.user.phone,email:input.email??cloud.user.email})});cloud.user=result.user;dirty=false;render();notify('Đã cập nhật hồ sơ.');}
       else if(special.classList.contains('access-form')){await cloud.request('/users/access',{method:'PUT',body:JSON.stringify({...input,id:special.dataset.id,classIds:new FormData(special).getAll('classIds')})});dirty=false;await openUserManagement();notify('Đã lưu quyền truy cập.');}
       else {const result=await cloud.request('/classes',{method:'POST',body:JSON.stringify(input)});cloud.classes=result.classes;dirty=false;closeModal(true);await switchClass(result.id);notify('Đã tạo lớp. Bạn có thể thêm học sinh hoặc nhập CSV.');}
     }catch(error){const target=special.querySelector('.form-error');if(target)target.textContent=error.message;else notify(error.message);}
-    finally{button.disabled=false;}return;
+    finally{button.disabled=false;if(familyForm)cloud.busy=false;}return;
   }
   const form=e.target;if(!['student-form','topic-form','group-form','class-form','session-form','user-form','leadership-form'].includes(form.id))return;e.preventDefault();
   if(cloud?.busy||cloud?.pending)return;

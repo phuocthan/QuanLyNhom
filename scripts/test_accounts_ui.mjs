@@ -106,7 +106,9 @@ try{
   await other.goto(base+'/#students');
   await other.locator('.students-table tbody tr').first().waitFor();
   assert.equal(await other.locator('.students-table tbody tr').count(),3);
-  assert.equal(await other.locator('.student-map').count(),0);
+  assert.equal(await other.locator('.student-map').count(),2);
+  assert.equal(await other.locator('.parent-info').filter({hasText:'0934567890'}).count(),1);
+  assert.equal(await other.locator('a.zalo[href="https://zalo.me/0934567890"]').count(),1);
   assert.equal(await other.locator('.parent-info').filter({hasText:'Nguyễn Thu Hương'}).count(),1);
   assert.equal(await other.locator('.parent-info').filter({hasText:'Nguyễn Minh Quang'}).count(),0);
   const second=await browser.newContext(),secondPage=await second.newPage();
@@ -147,6 +149,16 @@ try{
   await other.locator('#profile-form [name=name]').fill('Phụ huynh đổi tên');
   await other.locator('#profile-form button[type=submit]').click();
   await other.locator('#toast').filter({hasText:'Đã cập nhật hồ sơ'}).waitFor();
+  assert.equal(await other.locator('.family-address-form').count(),1);
+  assert.equal(await other.locator('.family-address-form [name=parentPhone]').inputValue(),'0912345678');
+  assert.equal(await other.locator('.family-address-form [name=parentPhone2]').inputValue(),'0934567890');
+  assert.equal(await other.locator('.family-address-form [name=parentPhone]').evaluate(el=>el.readOnly),true);
+  assert.equal(await other.locator('.family-address-form [name=parentPhone2]').evaluate(el=>el.readOnly),true);
+  await other.locator('.family-address-form [name=address]').fill('Địa chỉ từ hồ sơ cá nhân');
+  await other.locator('.family-address-form button[type=submit]').click();await other.locator('#toast').filter({hasText:'Đã cập nhật địa chỉ gia đình.'}).waitFor();
+  await other.reload();await other.locator('.family-address-form [name=address]').waitFor();
+  assert.equal(await other.locator('.family-address-form [name=address]').inputValue(),'Địa chỉ từ hồ sơ cá nhân');
+  assert.equal(await other.locator('.family-address-form [name=parentPhone2]').inputValue(),'0934567890');
   for(const width of [1440,768,390,320]){
     await page.setViewportSize({width,height:1000});
     for(const route of ['profile','classes','overview','students']){
