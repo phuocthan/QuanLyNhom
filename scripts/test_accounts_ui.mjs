@@ -83,6 +83,7 @@ try{
   await page.getByRole('button',{name:'Đóng',exact:true}).first().click();
   await page.goto(base+'/#classes');
   await page.locator('.class-space').filter({hasText:'Lớp 7/14'}).getByRole('button',{name:'Xem lớp'}).click();
+  await page.locator('#top-class').filter({hasText:'Lớp 7/14'}).waitFor();
   await page.goto(base+'/#students');
   assert.equal(await page.locator('.students-table tbody tr').count(),0);
   const parent=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true}),other=await parent.newPage();
