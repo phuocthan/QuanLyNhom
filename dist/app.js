@@ -1,3 +1,4 @@
+import {canCreateLearning,canManageGroup,canTransferGroup} from './permissions.js';
 import { studentParents, parentPhoneKey, STORAGE_KEY, localDate, uid, fold, createDemo, validateData, normalizeData, validDate, snapshotSession, allSessions } from './data.js';
 import { parseStudentsCSV, studentKey } from './csv.js';
 import { connectCloud, passwordFields, changePassword } from './cloud.js';
@@ -61,6 +62,24 @@ const initials = name=>String(name).trim().split(/\s+/).slice(-2).map(s=>s[0]).j
 const avatar=(name,i=0)=>`<span class="avatar c${i%5}" aria-hidden="true">${esc(initials(name))}</span>`;
 const student = id=>db.students.find(s=>s.id===id);
 const canManageStudents=()=>!cloud||cloud.user.role==='owner';
+const learningUser=()=>cloud?.user||{role:'owner'};
+const mayCreateLearning=()=>canCreateLearning(db,learningUser());
+const mayManageGroup=g=>canManageGroup(db,learningUser(),g);
+const mayTransferGroup=g=>canTransferGroup(db,learningUser(),g);
+function learningActionAllowed(action,id){
+  if(['new-topic','new-group','edit-topic','toggle-topic'].includes(action))return mayCreateLearning();
+  if(action==='delete-topic')return canManageStudents();
+  if(['edit-group','delete-group','toggle-group','next-session','reschedule-session','edit-session-note'].includes(action))return mayManageGroup(group(id));
+  if(action==='transfer-group')return mayTransferGroup(group(id));
+  return true;
+}
+function applyLearningPermissions(root=document){root.querySelectorAll('[data-action]').forEach(button=>{if(!learningActionAllowed(button.dataset.action,button.dataset.id))button.remove();});}
+function groupLeadershipFields(members,leaderId='',deputyLeaderId=''){
+  const options=members.map(id=>{const s=student(id);return s?{id,name:s.name}:null;}).filter(Boolean);
+  return [['leaderId','Trưởng nhóm',leaderId],['deputyLeaderId','Phó nhóm',deputyLeaderId]].map(([key,label,value])=>`<div class="field"><label for="f-${key}">${label}${key==='leaderId'?'':' <span class="optional">(không bắt buộc)</span>'}</label><select id="f-${key}" name="${key}" ${key==='leaderId'?'required':''}><option value="">${key==='leaderId'?'Chọn trưởng nhóm':'Chưa chọn phó nhóm'}</option>${options.map(o=>`<option value="${esc(o.id)}" ${o.id===value?'selected':''}>${esc(o.name)}</option>`).join('')}</select></div>`).join('');
+}
+function openLeadershipForm(id){const g=group(id);if(!mayTransferGroup(g))return;showModal(modalHeader('Chọn trưởng / phó nhóm',g.name)+`<form id="leadership-form" data-id="${esc(id)}"><div class="modal-body"><div class="form-error" role="alert"></div><div class="form-grid">${groupLeadershipFields(g.members,g.leaderId,g.deputyLeaderId)}</div></div>${formFooter('Lưu phân công')}</form>`);}
+
 const canEditStudent=s=>canManageStudents()||!!(s&&cloud.user.phone&&studentParents(s).some(p=>parentPhoneKey(p.phone)===cloud.user.phone));
 const visibleParents=s=>!s?[]:cloud?(cloud.parentLinks[s.id]||[]).filter(p=>studentParents(s).some(c=>parentPhoneKey(c.phone)===p.phone)):studentParents(s);
 const parentNames=s=>visibleParents(s).map(p=>p.name||p.relation).join(', ')||'Chưa có phụ huynh kích hoạt';
@@ -136,7 +155,7 @@ function topicCard(t){
 function renderTopics(){
   el.innerHTML=heading('Chuyên đề','','new-topic','Tạo chuyên đề')+`<div class="toolbar"><div class="tabs" aria-label="Lọc chuyên đề">${[['active','Đang thực hiện'],['done','Đã hoàn thành'],['all','Tất cả']].map(([id,label])=>`<button data-action="filter" data-id="${id}" class="${filter===id?'active':''}" aria-pressed="${filter===id}">${label}</button>`).join('')}</div><label class="search-field">${icon('search')}<input type="search" id="list-search" name="topicSearch" aria-label="Tìm chuyên đề" placeholder="Tìm tên chuyên đề…" value="${esc(query)}" autocomplete="off"></label></div><div id="topic-list"></div>`;renderTopicList();
 }
-function renderTopicList(){const list=db.topics.filter(t=>(filter==='all'||(filter==='done')===t.done)&&fold(t.name+' '+t.subject).includes(fold(query)));$('#topic-list').innerHTML=list.length?`<div class="full-grid">${list.map(topicCard).join('')}</div>`:empty('Chưa tìm thấy chuyên đề','Thử tên khác hoặc tạo chuyên đề mới.','new-topic','Tạo chuyên đề');}
+function renderTopicList(){const list=db.topics.filter(t=>(filter==='all'||(filter==='done')===t.done)&&fold(t.name+' '+t.subject).includes(fold(query)));$('#topic-list').innerHTML=list.length?`<div class="full-grid">${list.map(topicCard).join('')}</div>`:empty('Chưa tìm thấy chuyên đề','Thử tên khác hoặc tạo chuyên đề mới.','new-topic','Tạo chuyên đề');applyLearningPermissions(el);}
 function renderTopicDetail(id){
   const t=topic(id);if(!t){location.hash='topics';return;}
   const list=db.groups.filter(g=>g.topicId===id);
@@ -147,14 +166,14 @@ function renderGroups(){
 }
 function renderGroupList(){
   const list=db.groups.filter(g=>(filter==='all'||(filter==='done')===g.done)&&(topicFilter==='all'||g.topicId===topicFilter)&&fold(g.name+' '+topic(g.topicId)?.name+' '+g.members.map(id=>student(id)?.name).join(' ')).includes(fold(query))).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
-  $('#group-list').innerHTML=list.length?`<p class="group-filter-info">${list.length} nhóm học</p><div class="full-grid">${list.map(sessionCard).join('')}</div>`:empty('Chưa tìm thấy nhóm học','Thử thay đổi bộ lọc hoặc tạo một nhóm mới.','new-group','Tạo nhóm học');
+  $('#group-list').innerHTML=list.length?`<p class="group-filter-info">${list.length} nhóm học</p><div class="full-grid">${list.map(sessionCard).join('')}</div>`:empty('Chưa tìm thấy nhóm học','Thử thay đổi bộ lọc hoặc tạo một nhóm mới.','new-group','Tạo nhóm học');applyLearningPermissions(el);
 }
 function renderStudents(){
   el.innerHTML=heading('Học sinh','',canManageStudents()?'new-student':'','Thêm học sinh')+`<div class="toolbar">${canManageStudents()?`<div class="actions-wrap csv-actions"><button class="btn small" data-action="import-csv">${icon('upload')}Nhập CSV</button><a class="btn small" href="/hoc-sinh-demo.csv" download>${icon('download')}Tải CSV mẫu</a></div>`:''}<p class="group-filter-info" style="margin:0">${db.students.length} học sinh · ${db.students.reduce((n,s)=>n+visibleParents(s).length,0)} phụ huynh đã kích hoạt</p><label class="search-field">${icon('search')}<input id="list-search" type="search" name="studentSearch" autocomplete="off" aria-label="Tìm học sinh hoặc phụ huynh" placeholder="Tìm học sinh, phụ huynh, số điện thoại…" value="${esc(query)}"></label></div><div id="student-list"></div>`;renderStudentList();
 }
 function renderStudentList(){
   const list=db.students.filter(s=>fold(s.name+' '+parentSearch(s)+' '+s.phone).includes(fold(query)));
-  $('#student-list').innerHTML=list.length?`<div class="students-panel"><table class="students-table"><thead><tr><th>Học sinh</th><th class="student-phone-col">Số điện thoại học sinh</th><th>Phụ huynh và liên hệ</th><th><span class="optional">Thao tác</span></th></tr></thead><tbody>${list.map((s,i)=>`<tr><td><div class="student-name">${avatar(s.name,i)}<div><strong>${esc(s.name)}</strong>${s.address?`<small class="student-address">${esc(s.address)}</small>`:''}<small>${db.groups.filter(g=>g.members.includes(s.id)).length} nhóm học${s.demo?' · Mẫu':''}</small></div></div></td><td class="student-phone-col"><span class="phone-text">${esc(s.phone||'Chưa có SĐT')}</span></td><td class="parent-info">${linkedParentInfo(s)}</td><td class="record-actions">${canEditStudent(s)?`<button class="icon-btn" data-action="edit-student" data-id="${esc(s.id)}" aria-label="Sửa ${esc(s.name)}">${icon('edit')}</button>`:''}${canManageStudents()?`<button class="icon-btn" data-action="delete-student" data-id="${esc(s.id)}" aria-label="Xóa ${esc(s.name)}">${icon('trash')}</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:empty('Chưa tìm thấy học sinh','Tìm bằng tên có hoặc không dấu, tên phụ huynh hay số điện thoại.',canManageStudents()?'new-student':'','Thêm học sinh');
+  $('#student-list').innerHTML=list.length?`<div class="students-panel"><table class="students-table"><thead><tr><th>Học sinh</th><th class="student-phone-col">Số điện thoại học sinh</th><th>Phụ huynh và liên hệ</th><th><span class="optional">Thao tác</span></th></tr></thead><tbody>${list.map((s,i)=>`<tr><td><div class="student-name">${avatar(s.name,i)}<div><strong>${esc(s.name)}</strong>${s.academicDeputy?`<span class="student-role-tag">Lớp Phó học tập ${s.academicDeputy}</span>`:''}${s.address?`<small class="student-address">${esc(s.address)}</small>`:''}<small>${db.groups.filter(g=>g.members.includes(s.id)).length} nhóm học${s.demo?' · Mẫu':''}</small></div></div></td><td class="student-phone-col"><span class="phone-text">${esc(s.phone||'Chưa có SĐT')}</span></td><td class="parent-info">${linkedParentInfo(s)}</td><td class="record-actions">${canEditStudent(s)?`<button class="icon-btn" data-action="edit-student" data-id="${esc(s.id)}" aria-label="Sửa ${esc(s.name)}">${icon('edit')}</button>`:''}${canManageStudents()?`<button class="icon-btn" data-action="delete-student" data-id="${esc(s.id)}" aria-label="Xóa ${esc(s.name)}">${icon('trash')}</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:empty('Chưa tìm thấy học sinh','Tìm bằng tên có hoặc không dấu, tên phụ huynh hay số điện thoại.',canManageStudents()?'new-student':'','Thêm học sinh');
 }
 function calendarHTML(big){
   const y=monthDate.getFullYear(),m=monthDate.getMonth(),first=new Date(y,m,1),last=new Date(y,m+1,0),offset=(first.getDay()+6)%7;
@@ -179,6 +198,7 @@ function render(){
   else if(page==='classes'&&cloud)renderClasses();
   else if(page==='topics'&&routeId)renderTopicDetail(routeId);
   else if(page==='topics')renderTopics();else if(page==='groups')renderGroups();else if(page==='students')renderStudents();else if(page==='calendar')renderCalendar();else renderOverview();
+  applyLearningPermissions(el);
   $$('.topbar [data-icon],.sidebar [data-icon]').forEach(n=>n.innerHTML=icon(n.dataset.icon));
   if(cloud){$('.profile-button').dataset.action='profile';$('.profile-button').setAttribute('aria-label','Mở hồ sơ cá nhân');$('.profile-button').textContent=initials(cloud.user.name);$('.sidebar-profile').setAttribute('data-action','profile');updateCloudIndicator(cloud.busy?'Đang lưu…':storageFailed?'Chưa đồng bộ':'Đã đồng bộ');$('.sidebar-profile strong').textContent=cloud.user.name;$('.sidebar-profile small').textContent=cloud.user.role==='owner'?'Quản trị lớp học':cloud.user.role==='viewer'?'Chỉ xem':'Cùng chỉnh sửa';}
 }
@@ -199,7 +219,7 @@ function readRoute(){
 function showModal(html,kind='form',drawer=false){
   if(!modal.open)previousFocus=document.activeElement;
   dirty=false;modalKind=kind;modal.className=drawer?'drawer':kind==='search'?'search-modal':'';
-  content.innerHTML=html;if(!modal.open)modal.showModal();modal.scrollTop=0;document.body.classList.add('modal-open');
+  content.innerHTML=html;if(!modal.open)modal.showModal();modal.scrollTop=0;document.body.classList.add('modal-open');applyLearningPermissions(content);
   if(innerWidth<=760&&kind==='form')$('.modal-header .modal-close',content)?.focus({preventScroll:true});
 }
 function modalHeader(title,sub=''){return `<div class="modal-header"><div><h2 id="modal-title">${esc(title)}</h2>${sub?`<p>${esc(sub)}</p>`:''}</div><button type="button" class="btn modal-close" data-action="close-modal" aria-label="Đóng">${icon('close')}<span>Đóng</span></button></div><div id="discard-warning"></div>`;}
@@ -214,9 +234,9 @@ function field(label,name,value='',type='text',required=false,full=false,placeho
 }
 function openStudentForm(id){
   const s=student(id)||{};if(!canEditStudent(student(id))){notify('Bạn chỉ được sửa thông tin của con mình.');return;}
-  showModal(modalHeader(id?'Sửa thông tin học sinh':'Thêm học sinh',canManageStudents()?'Tối đa 2 số phụ huynh. Thông tin chỉ hiện khi tài khoản đăng nhập và đổi mật khẩu.':'Cập nhật thông tin của con bạn. Liên hệ admin để đổi liên kết phụ huynh.')+`<form id="student-form" data-id="${esc(id||'')}" novalidate><div class="modal-body"><div class="form-error" role="alert"></div><div class="form-grid">${field('Họ và tên học sinh','name',s.name,'text',true,true,'VD: Nguyễn Minh Anh…')}${field('Số điện thoại học sinh','phone',s.phone,'tel',false,true,'VD: 0912 345 678…')}${field('Địa chỉ nhà','address',s.address,'text',false,true,'Số nhà, đường, phường, tỉnh/thành phố…')}${canManageStudents()?`<div class="form-divider">Phụ huynh 1</div>${field('Họ và tên phụ huynh','parent',s.parent,'text',false,true,'VD: Nguyễn Thu Hương…')}<div class="field"><label for="f-relation">Mối quan hệ</label><select id="f-relation" name="relation">${['Mẹ','Bố','Cha','Người giám hộ','Khác'].map(r=>`<option ${r===s.relation?'selected':''}>${r}</option>`).join('')}</select></div>${field('Số điện thoại phụ huynh','parentPhone',s.parentPhone,'tel',false,false,'VD: 0912 345 678…')}<div class="form-divider">Phụ huynh 2</div>${field('Họ và tên phụ huynh 2','parent2',s.parent2,'text',false,true)}<div class="field"><label for="f-relation2">Mối quan hệ</label><select id="f-relation2" name="relation2">${['Bố','Mẹ','Cha','Người giám hộ','Khác'].map(r=>`<option ${r===(s.relation2||'Bố')?'selected':''}>${r}</option>`).join('')}</select></div>${field('Số điện thoại phụ huynh 2','parentPhone2',s.parentPhone2,'tel',false,false,'VD: 0912 345 678…')}`:''}<div class="field full"><label for="f-note">Ghi chú <span class="optional">(không bắt buộc)</span></label><textarea id="f-note" name="note" maxlength="2000" placeholder="Thông tin cần lưu ý…">${esc(s.note||'')}</textarea></div></div></div>${formFooter(id?'Lưu thay đổi':'Thêm học sinh')}</form>`);
+  showModal(modalHeader(id?'Sửa thông tin học sinh':'Thêm học sinh',canManageStudents()?'Tối đa 2 số phụ huynh. Thông tin chỉ hiện khi tài khoản đăng nhập và đổi mật khẩu.':'Cập nhật thông tin của con bạn. Liên hệ admin để đổi liên kết phụ huynh.')+`<form id="student-form" data-id="${esc(id||'')}" novalidate><div class="modal-body"><div class="form-error" role="alert"></div><div class="form-grid">${field('Họ và tên học sinh','name',s.name,'text',true,true,'VD: Nguyễn Minh Anh…')}${field('Số điện thoại học sinh','phone',s.phone,'tel',false,true,'VD: 0912 345 678…')}${field('Địa chỉ nhà','address',s.address,'text',false,true,'Số nhà, đường, phường, tỉnh/thành phố…')}${canManageStudents()?`<div class="field full"><label for="f-academicDeputy">Vai trò trong lớp</label><select id="f-academicDeputy" name="academicDeputy">${[[0,'Học sinh'],[1,'Lớp Phó học tập 1'],[2,'Lớp Phó học tập 2']].map(([value,label])=>`<option value="${value}" ${value===(s.academicDeputy||0)?'selected':''}>${label}</option>`).join('')}</select></div>`:''}${canManageStudents()?`<div class="form-divider">Phụ huynh 1</div>${field('Họ và tên phụ huynh','parent',s.parent,'text',false,true,'VD: Nguyễn Thu Hương…')}<div class="field"><label for="f-relation">Mối quan hệ</label><select id="f-relation" name="relation">${['Mẹ','Bố','Cha','Người giám hộ','Khác'].map(r=>`<option ${r===s.relation?'selected':''}>${r}</option>`).join('')}</select></div>${field('Số điện thoại phụ huynh','parentPhone',s.parentPhone,'tel',false,false,'VD: 0912 345 678…')}<div class="form-divider">Phụ huynh 2</div>${field('Họ và tên phụ huynh 2','parent2',s.parent2,'text',false,true)}<div class="field"><label for="f-relation2">Mối quan hệ</label><select id="f-relation2" name="relation2">${['Bố','Mẹ','Cha','Người giám hộ','Khác'].map(r=>`<option ${r===(s.relation2||'Bố')?'selected':''}>${r}</option>`).join('')}</select></div>${field('Số điện thoại phụ huynh 2','parentPhone2',s.parentPhone2,'tel',false,false,'VD: 0912 345 678…')}`:''}<div class="field full"><label for="f-note">Ghi chú <span class="optional">(không bắt buộc)</span></label><textarea id="f-note" name="note" maxlength="2000" placeholder="Thông tin cần lưu ý…">${esc(s.note||'')}</textarea></div></div></div>${formFooter(id?'Lưu thay đổi':'Thêm học sinh')}</form>`);
 }
-function openTopicForm(id){
+function openTopicForm(id){if(!mayCreateLearning())return;
   const t=topic(id)||{color:'purple',due:localDate()};
   showModal(modalHeader(id?'Sửa chuyên đề':'Tạo chuyên đề','Bắt đầu từ một ý tưởng, cùng nhau học điều mới.')+`<form id="topic-form" data-id="${esc(id||'')}" novalidate><div class="modal-body"><div class="form-error" role="alert"></div><div class="form-grid">${field('Tên chuyên đề','name',t.name,'text',true,true,'VD: Khám phá hệ Mặt Trời…')}<div class="field"><label for="f-subject">Môn học</label><select id="f-subject" name="subject">${[...new Set([...SUBJECTS,t.subject].filter(Boolean))].map(s=>`<option ${s===t.subject?'selected':''}>${esc(s)}</option>`).join('')}</select></div>${field('Hạn hoàn thành','due',t.due,'date',true)}<div class="field full"><label for="f-color">Màu nhận diện</label><select id="f-color" name="color">${COLORS.map((c,i)=>`<option value="${c}" ${c===t.color?'selected':''}>${['Tím khám phá','Cam ấm áp','Xanh bầu trời','Xanh lá cây','Hồng dịu dàng'][i]}</option>`).join('')}</select></div><div class="field full"><label for="f-description">Nội dung chuyên đề <span class="optional">(không bắt buộc)</span></label><textarea id="f-description" name="description" maxlength="3000" placeholder="Các con sẽ làm gì? Cần chuẩn bị những gì?…">${esc(t.description||'')}</textarea></div></div></div>${formFooter(id?'Lưu chuyên đề':'Tạo chuyên đề')}</form>`);
 }
@@ -227,16 +247,18 @@ function memberOptions(q=''){
 function renderSelected(){
   $('#selected-members').innerHTML=[...selectedMembers].map(id=>{const s=student(id);return `<button type="button" class="member-chip" data-action="remove-member" data-id="${esc(id)}" aria-label="Bỏ chọn ${esc(s?.name)}">${esc(s?.name)}${icon('close')}</button>`;}).join('');
   $('#selection-count').textContent=`Đã chọn ${selectedMembers.size} bạn`;
+  for(const name of ['leaderId','deputyLeaderId']){const roleSelect=$('#f-'+name);if(roleSelect){const value=roleSelect.value||editingGroup?.[name]||'';roleSelect.innerHTML='<option value="">'+(name==='leaderId'?'Chọn trưởng nhóm':'Chưa chọn phó nhóm')+'</option>'+[...selectedMembers].map(id=>`<option value="${esc(id)}">${esc(student(id)?.name)}</option>`).join('');roleSelect.value=selectedMembers.has(value)?value:'';}}
   const select=$('#f-hostId'),previous=select.value;
   select.innerHTML='<option value="">Nhập chủ nhà khác / chọn sau</option>'+[...selectedMembers].map(id=>{const s=student(id);return `<option value="${esc(id)}">Nhà ${esc(s?.name)} — PH: ${esc(parentNames(s))}</option>`;}).join('');
   if(selectedMembers.has(previous))select.value=previous;else{select.value='';if(previous){$('#f-hostName').value='';$('#f-hostPhone').value='';}}
 }
 function openGroupForm(id,topicId=''){
+  if(id?!mayManageGroup(group(id)):!mayCreateLearning())return;
   if(!db.students.length){notify('Thêm học sinh vào danh sách lớp trước khi tạo nhóm.');openStudentForm();return;}
   if(!db.topics.length){notify('Tạo chuyên đề trước khi chia nhóm học.');openTopicForm();return;}
   const g=group(id)||{topicId:topicId||(page==='topics'&&routeId?routeId:db.topics.find(t=>!t.done)?.id||db.topics[0].id),date:page==='calendar'?selectedDate:localDate(),start:'18:30',end:'20:00',members:[]};
   selectedMembers=new Set(g.members);editingGroup=g;
-  showModal(modalHeader(id?'Sửa nhóm học':'Tạo nhóm học','Chọn các bạn, hẹn thời gian và một nơi để cùng học.')+`<form id="group-form" data-id="${esc(id||'')}" novalidate><div class="modal-body"><div class="form-error" role="alert"></div><div class="form-grid"><div class="field full"><label for="f-topicId">Chuyên đề</label><select id="f-topicId" name="topicId" required>${db.topics.map(t=>`<option value="${esc(t.id)}" ${t.id===g.topicId?'selected':''}>${esc(t.name)}${t.done?' (đã hoàn thành)':''}</option>`).join('')}</select></div>${field('Tên nhóm','name',g.name,'text',true,true,'VD: Những nhà du hành…')}<div class="field full"><div class="form-label-row"><label class="form-label" for="member-search">Thành viên nhóm</label><span id="selection-count" class="selection-count"></span></div><div class="member-picker"><input id="member-search" class="picker-search" name="memberSearch" type="search" aria-label="Tìm và chọn học sinh" autocomplete="off" placeholder="Gõ tên học sinh hoặc phụ huynh…"><div id="member-options" class="member-options">${memberOptions()}</div></div><div id="selected-members" class="selected-members"></div></div><div class="form-divider">Thời gian học nhóm</div>${field('Ngày học','date',g.date,'date',true,true)}<div class="field time-half"><label for="f-start">Bắt đầu</label><input id="f-start" name="start" type="time" required value="${esc(g.start)}"></div><div class="field time-half"><label for="f-end">Kết thúc</label><input id="f-end" name="end" type="time" required value="${esc(g.end)}"></div><div id="schedule-warning" class="inline-warning full hidden" style="grid-column:1/-1" role="status"></div><div class="form-divider">Địa điểm & người đón nhóm</div><div class="field full"><label for="f-hostId">Nhà của thành viên <span class="optional">(không bắt buộc)</span></label><select id="f-hostId" name="hostId"></select><small>Chọn một bạn để điền nhanh thông tin phụ huynh. Bạn vẫn có thể sửa người liên hệ bên dưới.</small></div>${field('Người liên hệ chủ nhà','hostName',g.hostName,'text',false,true,'Họ tên phụ huynh hoặc học sinh chủ nhà…')}${field('Số điện thoại chủ nhà','hostPhone',g.hostPhone,'tel',false,true,'VD: 0912 345 678…')}${field('Địa chỉ học nhóm','address',g.address,'text',false,true,'Số nhà, đường, phường, tỉnh/thành phố…')}<div class="field full"><label for="f-note">Lưu ý cho buổi học <span class="optional">(không bắt buộc)</span></label><textarea id="f-note" name="note" maxlength="2000" placeholder="Đồ dùng cần mang, giờ đón con…">${esc(g.note||'')}</textarea></div></div></div>${formFooter(id?'Lưu nhóm học':'Tạo nhóm học')}</form>`, 'form',true);
+  showModal(modalHeader(id?'Sửa nhóm học':'Tạo nhóm học','Chọn các bạn, hẹn thời gian và một nơi để cùng học.')+`<form id="group-form" data-id="${esc(id||'')}" novalidate><div class="modal-body"><div class="form-error" role="alert"></div><div class="form-grid"><div class="field full"><label for="f-topicId">Chuyên đề</label><select id="f-topicId" name="topicId" required>${db.topics.map(t=>`<option value="${esc(t.id)}" ${t.id===g.topicId?'selected':''}>${esc(t.name)}${t.done?' (đã hoàn thành)':''}</option>`).join('')}</select></div>${field('Tên nhóm','name',g.name,'text',true,true,'VD: Những nhà du hành…')}<div class="field full"><div class="form-label-row"><label class="form-label" for="member-search">Thành viên nhóm</label><span id="selection-count" class="selection-count"></span></div><div class="member-picker"><input id="member-search" class="picker-search" name="memberSearch" type="search" aria-label="Tìm và chọn học sinh" autocomplete="off" placeholder="Gõ tên học sinh hoặc phụ huynh…"><div id="member-options" class="member-options">${memberOptions()}</div></div><div id="selected-members" class="selected-members"></div></div><div class="form-divider">Trưởng nhóm và phó nhóm</div>${groupLeadershipFields(g.members,g.leaderId,g.deputyLeaderId)}<div class="form-divider">Thời gian học nhóm</div>${field('Ngày học','date',g.date,'date',true,true)}<div class="field time-half"><label for="f-start">Bắt đầu</label><input id="f-start" name="start" type="time" required value="${esc(g.start)}"></div><div class="field time-half"><label for="f-end">Kết thúc</label><input id="f-end" name="end" type="time" required value="${esc(g.end)}"></div><div id="schedule-warning" class="inline-warning full hidden" style="grid-column:1/-1" role="status"></div><div class="form-divider">Địa điểm & người đón nhóm</div><div class="field full"><label for="f-hostId">Nhà của thành viên <span class="optional">(không bắt buộc)</span></label><select id="f-hostId" name="hostId"></select><small>Chọn một bạn để điền nhanh thông tin phụ huynh. Bạn vẫn có thể sửa người liên hệ bên dưới.</small></div>${field('Người liên hệ chủ nhà','hostName',g.hostName,'text',false,true,'Họ tên phụ huynh hoặc học sinh chủ nhà…')}${field('Số điện thoại chủ nhà','hostPhone',g.hostPhone,'tel',false,true,'VD: 0912 345 678…')}${field('Địa chỉ học nhóm','address',g.address,'text',false,true,'Số nhà, đường, phường, tỉnh/thành phố…')}<div class="field full"><label for="f-note">Lưu ý cho buổi học <span class="optional">(không bắt buộc)</span></label><textarea id="f-note" name="note" maxlength="2000" placeholder="Đồ dùng cần mang, giờ đón con…">${esc(g.note||'')}</textarea></div></div></div>${formFooter(id?'Lưu nhóm học':'Tạo nhóm học')}</form>`, 'form',true);
   renderSelected();$('#f-hostId').value=g.hostId||'';checkConflict();
 }
 function checkConflict(){
@@ -257,7 +279,7 @@ function openGroupDetail(id, sessionId='') {
     <div class="detail-body" data-color="${esc(t?.color||'purple')}">
       <div class="card-top">${subjectBadge(t)}<span class="status ${g.done?'done':isPast?'archived':dateTime(g)<new Date()?'pending':'ongoing'}">${status}</span></div>
       ${isPast?`<div class="settings-notice">Bạn đang xem buổi ${number} trong lịch sử. Lịch và ghi chú được giữ theo từng buổi.<button class="text-link" data-action="group-detail" data-id="${esc(id)}">Về buổi hiện tại ${icon('arrow')}</button></div>`:''}
-      <div class="session-heading"><h3>Buổi ${number}${isPast?' · Lịch sử':''}</h3>${!isPast?`<button class="text-link" data-action="reschedule-session" data-id="${esc(id)}">${icon('calendar')}Đổi lịch buổi này</button>`:''}</div>
+      <div class="group-leadership-summary"><p><strong>Trưởng nhóm:</strong> ${esc(student(current.leaderId)?.name||'Chưa phân công')}</p><p><strong>Phó nhóm:</strong> ${esc(student(current.deputyLeaderId)?.name||'Chưa phân công')}</p>${!isPast?`<button class="btn small" data-action="transfer-group" data-id="${esc(id)}">Chọn / chuyển trưởng, phó nhóm</button>`:''}</div><div class="session-heading"><h3>Buổi ${number}${isPast?' · Lịch sử':''}</h3>${!isPast?`<button class="text-link" data-action="reschedule-session" data-id="${esc(id)}">${icon('calendar')}Đổi lịch buổi này</button>`:''}</div>
       <div class="detail-schedule"><div class="date-tile"><span>Tháng ${dDate(g.date).getMonth()+1}</span><strong>${dDate(g.date).getDate()}</strong></div><div><h3>${esc(weekday(g.date))}, ${esc(dateLabel(g.date,{day:'numeric',month:'numeric',year:'numeric'}))}</h3><p>${esc(g.start)} – ${esc(g.end)}</p></div></div>
       ${!isPast?`<div class="session-continue"><p>${g.done?'Buổi này đã hoàn thành. Bạn có thể mở lại hoặc hẹn buổi mới.':'Nhóm tiếp tục cho đến khi bạn đánh dấu hoàn thành, kể cả khi đã qua giờ hẹn.'}</p><button class="btn primary" data-action="next-session" data-id="${esc(id)}">${icon('plus')}Hẹn buổi tiếp theo</button></div>`:''}
       <section class="detail-section"><div class="section-head"><h3>${icon('book')}Ghi chú buổi ${number}</h3>${!isPast?`<button class="text-link" data-action="edit-session-note" data-id="${esc(id)}">${icon('edit')}Sửa ghi chú</button>`:''}</div><p class="detail-note">${esc(g.note||'Chưa có ghi chú cho buổi này.')}</p></section>
@@ -273,7 +295,7 @@ function updateHostContact(old,s){
   db.groups.forEach(g=>{if(g.hostId===s.id){if(g.hostName===old.parent)g.hostName=s.parent;if(g.hostPhone===old.parentPhone)g.hostPhone=s.parentPhone;if(g.address===old.address)g.address=s.address;}});
 }
 function openSessionForm(id,mode){
-  const g=group(id);if(!g)return;
+  const g=group(id);if(!mayManageGroup(g))return;
   if(mode==='next'&&g.history.length>=1000){notify('Nhóm đã có 1.000 buổi lưu trữ. Xuất bản sao trước khi tạo nhóm tiếp nối.');return;}
   const next=mode==='next',notesOnly=mode==='note';
   let date=g.date;
@@ -401,7 +423,7 @@ document.addEventListener('click',async e=>{
   if(cloud?.pending&&!['export','retry-cloud','reload-cloud'].includes(action)){notify('Có thay đổi chưa đồng bộ. Xuất bản sao hoặc tải dữ liệu mới trước khi tiếp tục.');return;}
   if(['new-student','delete-student','import-csv','choose-csv','commit-csv'].includes(action)&&!canManageStudents()){notify('Chỉ admin được thêm, xóa hoặc nhập danh sách học sinh.');return;}
   if(action==='edit-student'&&!canEditStudent(student(id))){notify('Bạn chỉ được sửa thông tin của con mình.');return;}
-  if(cloud?.user.role==='viewer'&&action!=='edit-student'&&/^(new-|edit-|delete-|toggle-|reset-|commit-|import|next-|reschedule-)/.test(action)){notify('Tài khoản này chỉ có quyền xem dữ liệu.');return;}
+  if(!learningActionAllowed(action,id)){notify('Bạn chưa được phân quyền thực hiện thao tác này.');return;}
   switch(action){
     case 'profile':location.hash='profile';break;
     case 'create-class':openClassForm();break;
@@ -417,6 +439,7 @@ document.addEventListener('click',async e=>{
     case 'new-student':openStudentForm();break;
     case 'edit-student':openStudentForm(id);break;
     case 'new-group':openGroupForm('',id);break;
+    case 'transfer-group':openLeadershipForm(id);break;
     case 'edit-group':openGroupForm(id);break;
     case 'group-detail':openGroupDetail(id,button.dataset.session);break;
     case 'next-session':openSessionForm(id,'next');break;
@@ -437,7 +460,7 @@ document.addEventListener('click',async e=>{
     case 'calendar-today':selectedDate=localDate();monthDate=new Date(new Date().getFullYear(),new Date().getMonth(),1);history.replaceState(null,'',`#calendar?date=${selectedDate}`);render();break;
     case 'calendar-day':selectedDate=id;if(page==='overview'){location.hash=`calendar?date=${id}`;}else{history.replaceState(null,'',`#calendar?date=${id}`);render();}break;
     case 'remove-member':selectedMembers.delete(id);$('#member-options').innerHTML=memberOptions($('#member-search').value);renderSelected();dirty=true;checkConflict();break;
-    case 'toggle-group':{const g=group(id);g.done=!g.done;if(!g.done)topic(g.topicId).done=false;committed(g.done?'Đã đánh dấu buổi học hoàn thành.':'Đã mở lại để tiếp tục. Bạn có thể đổi lịch hoặc hẹn buổi tiếp theo.');openGroupDetail(id);break;}
+    case 'toggle-group':{const g=group(id);g.done=!g.done;if(!g.done&&mayCreateLearning())topic(g.topicId).done=false;committed(g.done?'Đã đánh dấu buổi học hoàn thành.':'Đã mở lại để tiếp tục. Bạn có thể đổi lịch hoặc hẹn buổi tiếp theo.');openGroupDetail(id);break;}
     case 'toggle-topic':{const t=topic(id);if(!t.done&&db.groups.some(g=>g.topicId===id&&!g.done)){notify('Còn nhóm chưa hoàn thành. Hãy hoàn thành các nhóm trước khi kết thúc chuyên đề.');break;}t.done=!t.done;committed(t.done?'Đã hoàn thành chuyên đề.':'Đã mở lại chuyên đề.');break;}
     case 'delete-group':{const g=group(id);confirmAction('Xóa nhóm học?',`Nhóm “${g.name}” và lịch hẹn của nhóm sẽ bị xóa. Các học sinh vẫn được giữ trong danh sách lớp.`,()=>{db.groups=db.groups.filter(g=>g.id!==id);closeModal(true);if(page==='groups'&&routeId){location.hash='groups';routeId='';}committed('Đã xóa nhóm học.');},()=>openGroupDetail(id),'Xóa nhóm');break;}
     case 'delete-topic':{const t=topic(id),n=countGroups(id);confirmAction('Xóa chuyên đề?',`Xóa “${t.name}” cùng ${n} nhóm và lịch hẹn trong chuyên đề này? Học sinh vẫn được giữ trong danh sách lớp.`,()=>{db.topics=db.topics.filter(t=>t.id!==id);db.groups=db.groups.filter(g=>g.topicId!==id);closeModal(true);routeId='';location.hash='topics';committed('Đã xóa chuyên đề và các nhóm liên quan.');},null,'Xóa chuyên đề');break;}
@@ -489,14 +512,23 @@ document.addEventListener('submit',async e=>{
     }catch(error){const target=special.querySelector('.form-error');if(target)target.textContent=error.message;else notify(error.message);}
     finally{button.disabled=false;}return;
   }
-  const form=e.target;if(!['student-form','topic-form','group-form','class-form','session-form','user-form'].includes(form.id))return;e.preventDefault();
+  const form=e.target;if(!['student-form','topic-form','group-form','class-form','session-form','user-form','leadership-form'].includes(form.id))return;e.preventDefault();
   if(cloud?.busy||cloud?.pending)return;
-  if(cloud?.user.role==='viewer'&&form.id!=='student-form'){notify('Tài khoản chỉ có quyền xem.');return;}
+  if(form.id==='topic-form'&&!mayCreateLearning())return;
+  if(form.id==='group-form'&&(form.dataset.id?!mayManageGroup(group(form.dataset.id)):!mayCreateLearning()))return;
+  if(form.id==='session-form'&&!mayManageGroup(group(form.dataset.id)))return;
+  if(form.id==='leadership-form'&&!mayTransferGroup(group(form.dataset.id)))return;
+  if(form.id==='user-form'&&!canManageStudents())return;
   if(form.id==='user-form'){const button=$('button[type=submit]',form);button.disabled=true;try{await cloud.addUser({...Object.fromEntries(new FormData(form)),classIds:new FormData(form).getAll('classIds')});dirty=false;await cloud.load();db=normalizeData(cloud.data);render();await openUserManagement();notify('Đã tạo tài khoản và cập nhật học sinh vào lớp. Phụ huynh đăng nhập bằng số điện thoại và mật khẩu lần đầu 12345678.');}catch(error){$('.form-error',form).textContent=error.message;}finally{button.disabled=false;}return;}
   const f=new FormData(form),id=form.dataset.id;
   const get=k=>String(f.get(k)||'').trim();
   if(form.id==='class-form'){if(cloud&&cloud.user.role!=='owner'){notify('Chỉ admin có quyền đổi thông tin lớp.');return;}const name=get('className');if(!name){form.elements.className.focus();return;}const school=get('schoolName');if(!school){form.elements.schoolName.focus();return;}db.className=name;db.schoolName=school;dirty=false;committed('Đã lưu lớp và trường.');return;}
   if(!requiredForm(form))return;
+  if(form.id==='leadership-form'){
+    const g=group(id),leaderId=get('leaderId'),deputyLeaderId=get('deputyLeaderId');
+    if(!g.members.includes(leaderId)||deputyLeaderId&&(!g.members.includes(deputyLeaderId)||deputyLeaderId===leaderId))return errorForm(form,'Chọn hai thành viên khác nhau cho trưởng và phó nhóm.');
+    g.leaderId=leaderId;g.deputyLeaderId=deputyLeaderId;committed('Đã cập nhật trưởng / phó nhóm.',{onSuccess:()=>{closeModal(true);openGroupDetail(id);}});return;
+  }
   if(form.id==='session-form'){saveSessionForm(form);return;}
   if(form.id==='student-form'&&!canManageStudents()){
     if(!canEditStudent(student(id)))return errorForm(form,'Bạn chỉ được sửa thông tin của con mình.');
@@ -504,9 +536,10 @@ document.addEventListener('submit',async e=>{
     try{await cloud.request('/students?classId='+encodeURIComponent(cloud.classId),{method:'PATCH',body:JSON.stringify({id,revision:cloud.revision,changes:{name:get('name'),phone:get('phone'),address:get('address'),note:get('note')}})});await cloud.load();db=normalizeData(cloud.data);dirty=false;closeModal(true);render();notify('Đã cập nhật thông tin con của bạn.');}catch(error){errorForm(form,error.message);}finally{button.disabled=false;cloud.busy=false;}return;
   }
   if(form.id==='student-form'){
-    const old=student(id),s={id:id||uid(),name:get('name'),phone:get('phone'),parent:get('parent'),parentPhone:get('parentPhone'),parent2:get('parent2'),parentPhone2:get('parentPhone2'),relation2:get('relation2'),address:get('address'),relation:get('relation'),note:get('note'),demo:!!old?.demo};
+    const old=student(id),s={id:id||uid(),name:get('name'),phone:get('phone'),parent:get('parent'),parentPhone:get('parentPhone'),parent2:get('parent2'),parentPhone2:get('parentPhone2'),relation2:get('relation2'),address:get('address'),relation:get('relation'),note:get('note'),academicDeputy:Number(get('academicDeputy')||0),demo:!!old?.demo};
     if(s.parentPhone2&&!/^0[35789]\d{8}$/.test(parentPhoneKey(s.parentPhone2)))return errorForm(form,'Số phụ huynh 2 cần là số di động Việt Nam hợp lệ.','parentPhone2');
     if(s.parentPhone&&s.parentPhone2&&parentPhoneKey(s.parentPhone)===parentPhoneKey(s.parentPhone2))return errorForm(form,'Hai số phụ huynh phải khác nhau.','parentPhone2');
+    if(s.academicDeputy)db.students.forEach(other=>{if(other.id!==s.id&&other.academicDeputy===s.academicDeputy)other.academicDeputy=0;});
     if(old){db.students[db.students.indexOf(old)]=s;updateHostContact(old,s);}else{db.students.push(s);}
     closeModal(true);committed(id?'Đã cập nhật thông tin học sinh.':'Đã thêm học sinh vào lớp.');
   }else if(form.id==='topic-form'){
@@ -519,7 +552,8 @@ document.addEventListener('submit',async e=>{
     if(get('start')>=get('end'))return errorForm(form,'Giờ kết thúc phải sau giờ bắt đầu trong cùng ngày.','end');
     if(!/^\d{4}-\d{2}-\d{2}$/.test(get('date'))||Number.isNaN(dDate(get('date')).valueOf()))return errorForm(form,'Chọn ngày học hợp lệ.','date');
     if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(get('start'))||!/^([01]\d|2[0-3]):[0-5]\d$/.test(get('end')))return errorForm(form,'Chọn giờ bắt đầu và kết thúc hợp lệ.','start');
-    const old=group(id),g={id:id||uid(),topicId:get('topicId'),name:get('name'),members:[...selectedMembers],hostId:get('hostId'),hostName:get('hostName'),hostPhone:get('hostPhone'),address:get('address'),date:get('date'),start:get('start'),end:get('end'),note:get('note'),done:old?.done||false,history:old?.history||[],sessionId:old?.sessionId||uid()};
+    if(!selectedMembers.has(get('leaderId'))||get('deputyLeaderId')&&(!selectedMembers.has(get('deputyLeaderId'))||get('deputyLeaderId')===get('leaderId')))return errorForm(form,'Trưởng / phó nhóm phải là hai thành viên khác nhau.','leaderId');
+    const old=group(id),g={leaderId:get('leaderId'),deputyLeaderId:get('deputyLeaderId'),id:id||uid(),topicId:get('topicId'),name:get('name'),members:[...selectedMembers],hostId:get('hostId'),hostName:get('hostName'),hostPhone:get('hostPhone'),address:get('address'),date:get('date'),start:get('start'),end:get('end'),note:get('note'),done:old?.done||false,history:old?.history||[],sessionId:old?.sessionId||uid()};
     if(old)db.groups[db.groups.indexOf(old)]=g;else db.groups.push(g);if(!g.done)topic(g.topicId).done=false;
     committed(id?`Đã cập nhật nhóm học “${g.name}”.`:`Đã tạo nhóm học “${g.name}”.`,{onSuccess:()=>{closeModal(true);if(id)openGroupDetail(g.id);}});
   }

@@ -1,4 +1,6 @@
 import http from 'node:http';
+import {learningWriteError} from '../dist/permissions.js';
+import {validateData} from '../dist/data.js';
 import { studentParents, parentPhoneKey } from '../dist/data.js';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -119,13 +121,10 @@ export function createApp(config={}) {
       }
       if(url.pathname==='/api/state'&&req.method==='GET')return json(res,200,loadState(db,classId));
       if(url.pathname==='/api/state'&&req.method==='PUT'){
-        if(user.role==='viewer')return json(res,403,{error:'Tài khoản chỉ có quyền xem.'});
         const input=await body(req);
-        if(user.role!=='owner'){
-          const current=loadState(db,classId).data;
-          if(input.data?.className!==current.className||input.data?.schoolName!==current.schoolName)return json(res,403,{error:'Chỉ admin có quyền đổi thông tin lớp.'});
-          if(JSON.stringify(input.data?.students)!==JSON.stringify(current.students))return json(res,403,{error:'Chỉ admin được quản lý danh sách học sinh. Phụ huynh dùng chức năng sửa thông tin con mình.'});
-        }
+        if(!validateData(input?.data))return json(res,400,{error:'Dữ liệu lớp không hợp lệ. Kiểm tra tag lớp phó và trưởng/phó nhóm.'});
+        const permissionError=learningWriteError(loadState(db,classId).data,input.data,user);
+        if(permissionError)return json(res,403,{error:permissionError});
         const result=saveState(db,input.data,input.revision,user.id,classId);
         if(result.error==='conflict')return json(res,409,{error:'Thiết bị khác đã cập nhật lớp. Tải bản mới trước khi sửa tiếp.',revision:result.revision});
         if(result.error)return json(res,400,{error:'Dữ liệu lớp không hợp lệ.'});return json(res,200,result);

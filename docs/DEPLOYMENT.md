@@ -51,3 +51,5 @@ Migration v6 bổ sung users.parent_activated_at, không xóa/reset dữ liệu.
 Trang đăng nhập dùng ảnh trường trong dist/tay-son-school.png.
 
 Phụ huynh (cả viewer/editor) được cập nhật tên, SĐT học sinh, địa chỉ, ghi chú của đúng con liên kết bằng số đăng nhập qua PATCH /api/students?classId=...; yêu cầu phiên đã đổi mật khẩu, CSRF và revision. Chỉ admin quản lý danh sách/đổi liên kết phụ huynh.
+
+Phân quyền học tập dùng dist/permissions.js ở cả client/server: academicDeputy 1/2 trên học sinh, leaderId/deputyLeaderId trên nhóm. Trưởng/phó nhóm lưu cùng record buổi hiện tại cho lớp default và JSON cho lớp khác; không xóa dữ liệu hoặc tự gán vai trò cho nhóm cũ. PUT state kiểm tra thay đổi dựa trên vai trò đã lưu, không dựa trên vai trò gửi lên. Giữ nguyên quyền sửa thông tin đúng con qua PATCH students. Kiểm thử thêm node scripts/test_leadership_ui.mjs trên SQLite trong bộ nhớ.

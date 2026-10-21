@@ -15,7 +15,7 @@ try{
   browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHANNEL?{channel:process.env.PLAYWRIGHT_CHANNEL}:{})});
   await mkdir('artifacts',{recursive:true});
   const errors=[],owner=await browser.newContext({viewport:{width:1440,height:1050}}),page=await owner.newPage();
-  page.on('pageerror',error=>errors.push(error.message));
+  page.on('pageerror',error=>{errors.push(error.message);console.error('Browser error:',error.message);});
   await page.goto(base);
   await page.locator('.auth-school img').waitFor();
   assert.equal(await page.locator('.auth-school img').evaluate(img=>img.complete&&img.naturalWidth>0),true);
@@ -62,7 +62,8 @@ try{
   await page.locator('#topic-form [name=name]').fill('Ôn tập cùng bạn');await page.locator('#topic-form [name=due]').fill('2026-12-31');
   await saveCreatedForm('#topic-form','Đã tạo chuyên đề “Ôn tập cùng bạn”.');
   await page.getByRole('button',{name:'Tạo nhóm học',exact:true}).first().click();
-  await page.locator('#group-form [name=name]').fill('Nhóm Tiến Bộ');await page.locator('#group-form [name=member]').first().check();
+  await page.locator('#group-form [name=name]').fill('Nhóm Tiến Bộ');await page.locator('#group-form [name=member]').first().check();await page.locator('#group-form [name=member]').nth(1).check();
+  await page.locator('#group-form [name=leaderId]').selectOption({index:1});await page.locator('#group-form [name=deputyLeaderId]').selectOption({index:2});
   await page.locator('#group-form [name=date]').fill('2026-12-30');
   await saveCreatedForm('#group-form','Đã tạo nhóm học “Nhóm Tiến Bộ”.');
   await page.goto(base+'/#profile');

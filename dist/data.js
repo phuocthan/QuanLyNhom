@@ -44,7 +44,7 @@ export function parentPhoneKey(value){let phone=String(value||'').replace(/[\s()
 export function studentParents(s){return [{name:s.parent||'',phone:s.parentPhone||'',relation:s.relation||'Người giám hộ'},{name:s.parent2||'',phone:s.parentPhone2||'',relation:s.relation2||'Người giám hộ'}].filter(p=>p.phone.trim());}
 export function snapshotSession(g) {
   return {id:g.sessionId||uid(),date:g.date,start:g.start,end:g.end,note:g.note,done:g.done,
-    hostId:g.hostId,hostName:g.hostName,hostPhone:g.hostPhone,address:g.address,members:[...g.members]};
+    ...(g.leaderId===undefined?{}:{leaderId:g.leaderId}),...(g.deputyLeaderId===undefined?{}:{deputyLeaderId:g.deputyLeaderId}),hostId:g.hostId,hostName:g.hostName,hostPhone:g.hostPhone,address:g.address,members:[...g.members]};
 }
 export function allSessions(data) {
   return data.groups.flatMap(g=>[
@@ -62,7 +62,9 @@ export function validateData(x) {
   const unique = arr=>new Set(arr.map(v=>v.id)).size===arr.length;
   if(!['students','topics','groups'].every(k=>x[k].every(v=>v && text(v.id,100) && v.id) && unique(x[k])))return false;
   if(!x.students.every(s=>['name','phone','parent','parentPhone','relation','note'].every(k=>text(s[k])) && s.name.trim() && (s.address===undefined||text(s.address)) && ['parent2','parentPhone2','relation2'].every(k=>s[k]===undefined||text(s[k],250)) && (!s.parentPhone2||(/^0[35789]\d{8}$/.test(parentPhoneKey(s.parentPhone2))&&parentPhoneKey(s.parentPhone2)!==parentPhoneKey(s.parentPhone)))))return false;
+  const deputies=x.students.map(s=>s.academicDeputy).filter(Boolean);
+  if(x.students.some(s=>s.academicDeputy!==undefined&&![0,1,2].includes(s.academicDeputy))||new Set(deputies).size!==deputies.length)return false;
   if(!x.topics.every(t=>['name','subject','description'].every(k=>text(t[k])) && t.name.trim() && ['purple','orange','blue','green','pink'].includes(t.color) && date(t.due) && typeof t.done==='boolean'))return false;
   const sessionValid=s=>s&&['hostId','hostName','hostPhone','address','note'].every(k=>text(s[k]))&&Array.isArray(s.members)&&s.members.length>0&&s.members.every(id=>text(id,100))&&date(s.date)&&time(s.start)&&time(s.end)&&s.start<s.end&&typeof s.done==='boolean';
-  return x.groups.every(g=>sessionValid(g)&&text(g.name)&&g.name.trim()&&text(g.topicId)&&x.topics.some(t=>t.id===g.topicId)&&new Set(g.members).size===g.members.length&&g.members.every(id=>x.students.some(s=>s.id===id))&&(!g.hostId||g.members.includes(g.hostId))&&(g.sessionId===undefined||(text(g.sessionId,100)&&g.sessionId))&&(g.history===undefined||(Array.isArray(g.history)&&g.history.length<=1000&&g.history.every(h=>sessionValid(h)&&text(h.id,100)&&h.id)&&unique(g.history)&&!g.history.some(h=>h.id===g.sessionId))));
+  return x.groups.every(g=>sessionValid(g)&&(g.leaderId===undefined||text(g.leaderId,100)&&(!g.leaderId||g.members.includes(g.leaderId)))&&(g.deputyLeaderId===undefined||text(g.deputyLeaderId,100)&&(!g.deputyLeaderId||!!g.leaderId&&g.deputyLeaderId!==g.leaderId&&g.members.includes(g.deputyLeaderId)))&&sessionValid(g)&&text(g.name)&&g.name.trim()&&text(g.topicId)&&x.topics.some(t=>t.id===g.topicId)&&new Set(g.members).size===g.members.length&&g.members.every(id=>x.students.some(s=>s.id===id))&&(!g.hostId||g.members.includes(g.hostId))&&(g.sessionId===undefined||(text(g.sessionId,100)&&g.sessionId))&&(g.history===undefined||(Array.isArray(g.history)&&g.history.length<=1000&&g.history.every(h=>sessionValid(h)&&text(h.id,100)&&h.id)&&unique(g.history)&&!g.history.some(h=>h.id===g.sessionId))));
 }

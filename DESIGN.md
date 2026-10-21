@@ -62,3 +62,5 @@ Thông tin từng phụ huynh và nút gọi/Zalo nằm chung một hàng (tự 
 Quyền danh sách học sinh: chỉ admin thêm/xóa/nhập và đổi liên kết phụ huynh. Mọi tài khoản phụ huynh sau kích hoạt được sửa tên, SĐT học sinh, địa chỉ và ghi chú của đúng các con có số phụ huynh trùng số đăng nhập. Ẩn nút sửa gia đình khác và toàn bộ nút xóa với phụ huynh. Máy chủ kiểm tra liên kết hiện tại, quyền lớp và revision ở PATCH /api/students; không cho phụ huynh đổi danh sách học sinh qua PUT state.
 
 Tạo chuyên đề/nhóm: giữ biểu mẫu trong khi lưu, chỉ đóng sau khi máy chủ xác nhận thành công; thông báo ghi rõ tên vừa tạo. Tạo nhóm không tự mở lại popup chi tiết.
+
+Vai trò học tập: admin gán Lớp Phó học tập 1/2 trong biểu mẫu sửa học sinh; mỗi vị trí chỉ có một em. Tài khoản liên kết với học sinh nhận quyền theo số phụ huynh. Hai lớp phó tạo/sửa chuyên đề, tạo nhóm và chuyển trưởng/phó nhóm. Nhóm có leaderId và deputyLeaderId, là hai thành viên khác nhau; trưởng/phó nhóm chỉ sửa nhóm mình, thành viên khác chỉ xem. Admin luôn có toàn quyền. Nhóm cũ chưa phân công được giữ nguyên để admin/lớp phó chọn người phụ trách.

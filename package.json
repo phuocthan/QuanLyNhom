@@ -11,6 +11,6 @@
     "dev:static": "node scripts/serve.mjs",
     "build": "npm run check",
     "test": "node --test server/*.test.mjs",
-    "check": "node --check dist/app.js && node --check dist/data.js && node --check dist/csv.js && node --check dist/cloud.js && node --check server/index.mjs && node --check server/database.mjs && node --check server/auth.mjs"
+    "check": "node --check dist/app.js && node --check dist/data.js && node --check dist/permissions.js && node --check dist/csv.js && node --check dist/cloud.js && node --check server/index.mjs && node --check server/database.mjs && node --check server/auth.mjs"
   }
 }
