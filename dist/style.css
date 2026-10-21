@@ -363,3 +363,5 @@ body:not(.cloud-mode) .class-picker,body:not(.cloud-mode) .header-logout{display
   .topbar kbd{background:var(--classroom-paper);border-color:var(--classroom-line);color:var(--classroom-secondary)}
   .topbar :focus-visible{outline-color:#5c8b61}
 }
+
+.students-table .linked-parent-actions{gap:4px;flex-wrap:wrap}.student-map{color:var(--classroom-brand);background:var(--classroom-brand-soft)}.student-map:hover{background:#dce8cf;color:#244b32}

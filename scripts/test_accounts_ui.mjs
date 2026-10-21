@@ -43,6 +43,10 @@ try{
   await page.getByRole('button',{name:'Nhập danh sách',exact:true}).click();
   await page.locator('.local-indicator').filter({hasText:'Đã đồng bộ'}).waitFor();
   assert.equal(await page.locator('.students-table tbody tr').count(),2);
+  assert.equal(await page.locator('.student-map').count(),2);
+  const mapUrl=new URL(await page.locator('.student-map').first().getAttribute('href'));
+  assert.equal(mapUrl.origin,'https://www.google.com');assert.equal(mapUrl.searchParams.get('query'),'Đà Nẵng');
+  assert.equal(await page.locator('.student-map').first().getAttribute('target'),'_blank');
   assert.equal(await page.locator('.parent-info').filter({hasText:'Nguyễn Thu Hương'}).count(),0);
   assert.equal(await page.locator('.parent-info').filter({hasText:'Nguyễn Minh Quang'}).count(),0);
   await page.goto(base+'/#profile');
@@ -85,6 +89,7 @@ try{
   await other.goto(base+'/#students');
   await other.locator('.students-table tbody tr').first().waitFor();
   assert.equal(await other.locator('.students-table tbody tr').count(),3);
+  assert.equal(await other.locator('.student-map').count(),0);
   assert.equal(await other.locator('.parent-info').filter({hasText:'Nguyễn Thu Hương'}).count(),1);
   assert.equal(await other.locator('.parent-info').filter({hasText:'Nguyễn Minh Quang'}).count(),0);
   const second=await browser.newContext(),secondPage=await second.newPage();
@@ -99,6 +104,10 @@ try{
   await other.locator('.parent-info').filter({hasText:'Nguyễn Minh Quang'}).waitFor({timeout:22000});
   assert.equal(await other.locator('.parent-info').filter({hasText:'Nguyễn Thu Hương'}).count(),1);
   await other.screenshot({path:'artifacts/hoc-nhom-two-parents-mobile.png',fullPage:true});
+  app.db.prepare("UPDATE users SET role='editor' WHERE phone=?").run('0934567890');
+  await secondPage.reload();await secondPage.goto(base+'/#students');await secondPage.locator('.student-map').first().waitFor();
+  assert.equal(await secondPage.locator('.student-map').count(),2);
+  assert.equal(await secondPage.locator('.students-table tbody tr').filter({hasText:'Nguyễn Minh An'}).locator('.linked-parent-actions').first().locator('.student-map').count(),1);
   await second.close();
   await other.getByRole('button',{name:'Thêm học sinh',exact:true}).click();
   await other.locator('#toast').filter({hasText:'chỉ có quyền xem'}).waitFor();

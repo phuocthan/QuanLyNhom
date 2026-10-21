@@ -54,3 +54,5 @@ Lấy màu từ src/garden.css, src/forest-theme.css và src/redesign.css của 
 Nút đóng hộp thoại có chữ Đóng và biểu tượng X, vùng bấm cao ít nhất 44px, cố định ở đầu hộp thoại khi cuộn.
 
 Header dùng nền sáng khi có sidebar (từ 761px) hoặc màn hình nằm ngang; màn hình dọc nhỏ giữ header xanh. Nút đăng xuất trên header dùng biểu tượng, vùng bấm 44px và tên hỗ trợ Đăng xuất.
+
+Danh sách học sinh: admin và tài khoản cùng chỉnh sửa có nút bản đồ bên cạnh Zalo, mở Google Maps theo địa chỉ học sinh. Mỗi học sinh có một nút, chỉ hiện khi có địa chỉ; tài khoản chỉ xem không có nút này.
