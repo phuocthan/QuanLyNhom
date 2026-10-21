@@ -104,6 +104,19 @@ export function createApp(config={}) {
         for(const s of loadState(db,classId).data.students){links[s.id]=studentParents(s).flatMap(p=>{const account=byPhone.get(parentPhoneKey(p.phone));return account?[{id:account.id,name:account.name,phone:account.phone,relation:p.relation}]:[];});}
         return json(res,200,{links});
       }
+      if(url.pathname==='/api/students'&&req.method==='PATCH'){
+        if(!db.prepare('SELECT 1 FROM class_spaces WHERE id=?').get(classId)||!canAccess(user,classId))return json(res,403,{error:'Bạn chưa được cấp quyền vào lớp này.'});
+        const input=await body(req),current=loadState(db,classId),student=current.data.students.find(s=>s.id===input.id);
+        if(!student)return json(res,404,{error:'Không tìm thấy học sinh.'});
+        if(user.role!=='owner'&&(!user.phone||!studentParents(student).some(p=>parentPhoneKey(p.phone)===user.phone)))return json(res,403,{error:'Bạn chỉ được sửa thông tin của con mình.'});
+        const changes=input.changes;
+        if(!changes||typeof changes!=='object'||Array.isArray(changes)||Object.keys(changes).some(k=>!['name','phone','address','note'].includes(k)||typeof changes[k]!=='string'))return json(res,400,{error:'Chỉ được sửa tên, số điện thoại học sinh, địa chỉ và ghi chú.'});
+        Object.assign(student,changes);
+        const result=saveState(db,current.data,input.revision,user.id,classId);
+        if(result.error==='conflict')return json(res,409,{error:'Dữ liệu đã thay đổi. Tải lại trước khi sửa.',revision:result.revision});
+        if(result.error)return json(res,400,{error:'Thông tin học sinh không hợp lệ.'});
+        return json(res,200,result);
+      }
       if(url.pathname==='/api/state'&&req.method==='GET')return json(res,200,loadState(db,classId));
       if(url.pathname==='/api/state'&&req.method==='PUT'){
         if(user.role==='viewer')return json(res,403,{error:'Tài khoản chỉ có quyền xem.'});
@@ -111,7 +124,7 @@ export function createApp(config={}) {
         if(user.role!=='owner'){
           const current=loadState(db,classId).data;
           if(input.data?.className!==current.className||input.data?.schoolName!==current.schoolName)return json(res,403,{error:'Chỉ admin có quyền đổi thông tin lớp.'});
-          if(Array.isArray(input.data?.students)&&input.data.students.some(s=>{const old=current.students.find(v=>v.id===s?.id);return JSON.stringify(studentParents(s||{}))!==JSON.stringify(studentParents(old||{}));}))return json(res,403,{error:'Chỉ admin có quyền thay đổi liên kết phụ huynh.'});
+          if(JSON.stringify(input.data?.students)!==JSON.stringify(current.students))return json(res,403,{error:'Chỉ admin được quản lý danh sách học sinh. Phụ huynh dùng chức năng sửa thông tin con mình.'});
         }
         const result=saveState(db,input.data,input.revision,user.id,classId);
         if(result.error==='conflict')return json(res,409,{error:'Thiết bị khác đã cập nhật lớp. Tải bản mới trước khi sửa tiếp.',revision:result.revision});

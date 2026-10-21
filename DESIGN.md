@@ -56,3 +56,9 @@ Nút đóng hộp thoại có chữ Đóng và biểu tượng X, vùng bấm ca
 Header dùng nền sáng khi có sidebar (từ 761px) hoặc màn hình nằm ngang; màn hình dọc nhỏ giữ header xanh. Nút đăng xuất trên header dùng biểu tượng, vùng bấm 44px và tên hỗ trợ Đăng xuất.
 
 Danh sách học sinh: admin và tài khoản cùng chỉnh sửa có nút bản đồ bên cạnh Zalo, mở Google Maps theo địa chỉ học sinh. Mỗi học sinh có một nút, chỉ hiện khi có địa chỉ; tài khoản chỉ xem không có nút này.
+
+Thông tin từng phụ huynh và nút gọi/Zalo nằm chung một hàng (tự xuống dòng trên màn hình hẹp), tránh tách các nút liên hệ khỏi cha/mẹ tương ứng.
+
+Quyền danh sách học sinh: chỉ admin thêm/xóa/nhập và đổi liên kết phụ huynh. Mọi tài khoản phụ huynh sau kích hoạt được sửa tên, SĐT học sinh, địa chỉ và ghi chú của đúng các con có số phụ huynh trùng số đăng nhập. Ẩn nút sửa gia đình khác và toàn bộ nút xóa với phụ huynh. Máy chủ kiểm tra liên kết hiện tại, quyền lớp và revision ở PATCH /api/students; không cho phụ huynh đổi danh sách học sinh qua PUT state.
+
+Tạo chuyên đề/nhóm: giữ biểu mẫu trong khi lưu, chỉ đóng sau khi máy chủ xác nhận thành công; thông báo ghi rõ tên vừa tạo. Tạo nhóm không tự mở lại popup chi tiết.

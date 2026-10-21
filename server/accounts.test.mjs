@@ -110,7 +110,8 @@ test('class isolation, phone accounts, forced password change, grants, profile a
     assert.equal((await request('/state','GET',undefined,parent)).status,403);
     const editorData=(await request(route,'GET',undefined,parent)).body;
     editorData.data.students[0].name='Tên mới';
-    assert.equal((await request(route,'PUT',{data:editorData.data,revision:editorData.revision},parent)).status,200);
+    assert.equal((await request(route,'PUT',{data:editorData.data,revision:editorData.revision},parent)).status,403);
+    assert.equal((await request('/students?classId='+classId,'PATCH',{id:editorData.data.students[0].id,revision:editorData.revision,changes:{name:'Tên mới'}},parent)).status,200);
     assert.equal((await request(route,'PUT',{data:{...editorData.data,className:'Đổi trái phép'},revision:editorData.revision+1},parent)).status,403);
     assert.equal((await request('/users/access','PUT',{id:user.id,classIds:['missing'],role:'viewer'},owner)).status,400);
     assert.equal((await request('/classes','GET',undefined,parent)).body.classes[0].id,classId);

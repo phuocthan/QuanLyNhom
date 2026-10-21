@@ -60,12 +60,14 @@ const weekday = date=>new Intl.DateTimeFormat('vi-VN',{weekday:'long'}).format(d
 const initials = name=>String(name).trim().split(/\s+/).slice(-2).map(s=>s[0]).join('').toUpperCase();
 const avatar=(name,i=0)=>`<span class="avatar c${i%5}" aria-hidden="true">${esc(initials(name))}</span>`;
 const student = id=>db.students.find(s=>s.id===id);
+const canManageStudents=()=>!cloud||cloud.user.role==='owner';
+const canEditStudent=s=>canManageStudents()||!!(s&&cloud.user.phone&&studentParents(s).some(p=>parentPhoneKey(p.phone)===cloud.user.phone));
 const visibleParents=s=>!s?[]:cloud?(cloud.parentLinks[s.id]||[]).filter(p=>studentParents(s).some(c=>parentPhoneKey(c.phone)===p.phone)):studentParents(s);
 const parentNames=s=>visibleParents(s).map(p=>p.name||p.relation).join(', ')||'Chưa có phụ huynh kích hoạt';
 const parentSearch=s=>(cloud?.user.role==='owner'?studentParents(s):visibleParents(s)).map(p=>p.name+' '+p.phone).join(' ');
-const linkedParentInfo=s=>visibleParents(s).map(p=>`<div class="linked-parent"><strong>${esc(p.name)} <span class="optional">(${esc(p.relation)})</span></strong><small class="phone-text">${esc(p.phone)}</small></div>`).join('')||'<span class="helper">Chưa có phụ huynh kích hoạt</span>';
+const linkedParentInfo=s=>{const map=studentMapLink(s);return visibleParents(s).map((p,i)=>`<div class="linked-parent"><div class="linked-parent-text"><strong>${esc(p.name)} <span class="optional">(${esc(p.relation)})</span></strong><small class="phone-text">${esc(p.phone)}</small></div><div class="linked-parent-actions">${contacts(p.phone,p.name)}${i===0?map:''}</div></div>`).join('')||`<span class="helper">Chưa có phụ huynh kích hoạt</span>${map?`<div class="linked-parent-actions">${map}</div>`:''}`;};
 const studentMapLink=s=>cloud&&['owner','editor'].includes(cloud.user.role)&&s.address?.trim()?`<a class="icon-btn student-map" href="https://www.google.com/maps/search/?api=1&amp;query=${esc(encodeURIComponent(s.address.trim()))}" target="_blank" rel="noopener noreferrer" aria-label="Mở bản đồ nhà của ${esc(s.name)}" title="Mở địa chỉ trên Google Maps">${icon('pin')}</a>`:'';
-const linkedParentContacts=(s,withMap=false)=>{const parents=visibleParents(s),map=withMap?studentMapLink(s):'';return parents.map((p,i)=>`<div class="linked-parent-actions">${contacts(p.phone,p.name)}${i===0?map:''}</div>`).join('')||(map?`<div class="linked-parent-actions">${map}</div>`:'<span class="helper">—</span>');};
+const linkedParentContacts=s=>visibleParents(s).map(p=>`<div class="linked-parent-actions">${contacts(p.phone,p.name)}</div>`).join('')||'<span class="helper">—</span>';
 
 const topic = id=>db.topics.find(t=>t.id===id);
 const group = id=>db.groups.find(g=>g.id===id);
@@ -82,10 +84,10 @@ function persist(){
   try{localStorage.setItem(STORAGE_KEY,JSON.stringify(db));storageFailed=false;$('.local-indicator').innerHTML='<i></i> Đã lưu trên máy';return true;}
   catch {storageFailed=true;$('.local-indicator').textContent='Chưa lưu được';notify('Trình duyệt không lưu được dữ liệu. Hãy xuất bản sao trước khi đóng trang.');return false;}
 }
-function committed(message){
-  render();if(!cloud){const saved=persist();if(saved)notify(message);return;}
+function committed(message,{onSuccess}={}){
+  render();if(!cloud){const saved=persist();if(saved){onSuccess?.();notify(message);}return;}
   const snapshot=structuredClone(db);cloud.busy=true;setCloudBusy(true);updateCloudIndicator('Đang lưu…');
-  cloud.save(snapshot).then(()=>{storageFailed=false;render();updateCloudIndicator('Đã đồng bộ');notify(message);}).catch(error=>{
+  cloud.save(snapshot).then(()=>{storageFailed=false;onSuccess?.();render();updateCloudIndicator('Đã đồng bộ');notify(message);}).catch(error=>{
     cloud.pending=snapshot;storageFailed=true;updateCloudIndicator('Chưa đồng bộ');
     showModal(modalHeader(error.status===409?'Dữ liệu đã thay đổi':'Chưa lưu được lên máy chủ')+`<div class="modal-body"><p class="confirm-text">${esc(error.message)}</p><p class="helper">Thay đổi của bạn đang được giữ tạm trong tab này. Xuất bản sao để giữ lại trước khi tải dữ liệu mới.</p></div><div class="modal-footer"><button class="btn" data-action="export">Xuất bản sao của tôi</button>${error.status!==409?'<button class="btn" data-action="retry-cloud">Thử lưu lại</button>':''}<button class="btn primary" data-action="reload-cloud">Tải dữ liệu mới</button></div>`,'sync-error');
   }).finally(()=>{cloud.busy=false;setCloudBusy(false);});
@@ -148,11 +150,11 @@ function renderGroupList(){
   $('#group-list').innerHTML=list.length?`<p class="group-filter-info">${list.length} nhóm học</p><div class="full-grid">${list.map(sessionCard).join('')}</div>`:empty('Chưa tìm thấy nhóm học','Thử thay đổi bộ lọc hoặc tạo một nhóm mới.','new-group','Tạo nhóm học');
 }
 function renderStudents(){
-  el.innerHTML=heading('Học sinh','','new-student','Thêm học sinh')+`<div class="toolbar"><div class="actions-wrap csv-actions"><button class="btn small" data-action="import-csv">${icon('upload')}Nhập CSV</button><a class="btn small" href="/hoc-sinh-demo.csv" download>${icon('download')}Tải CSV mẫu</a></div><p class="group-filter-info" style="margin:0">${db.students.length} học sinh · ${db.students.reduce((n,s)=>n+visibleParents(s).length,0)} phụ huynh đã kích hoạt</p><label class="search-field">${icon('search')}<input id="list-search" type="search" name="studentSearch" autocomplete="off" aria-label="Tìm học sinh hoặc phụ huynh" placeholder="Tìm học sinh, phụ huynh, số điện thoại…" value="${esc(query)}"></label></div><div id="student-list"></div>`;renderStudentList();
+  el.innerHTML=heading('Học sinh','',canManageStudents()?'new-student':'','Thêm học sinh')+`<div class="toolbar">${canManageStudents()?`<div class="actions-wrap csv-actions"><button class="btn small" data-action="import-csv">${icon('upload')}Nhập CSV</button><a class="btn small" href="/hoc-sinh-demo.csv" download>${icon('download')}Tải CSV mẫu</a></div>`:''}<p class="group-filter-info" style="margin:0">${db.students.length} học sinh · ${db.students.reduce((n,s)=>n+visibleParents(s).length,0)} phụ huynh đã kích hoạt</p><label class="search-field">${icon('search')}<input id="list-search" type="search" name="studentSearch" autocomplete="off" aria-label="Tìm học sinh hoặc phụ huynh" placeholder="Tìm học sinh, phụ huynh, số điện thoại…" value="${esc(query)}"></label></div><div id="student-list"></div>`;renderStudentList();
 }
 function renderStudentList(){
   const list=db.students.filter(s=>fold(s.name+' '+parentSearch(s)+' '+s.phone).includes(fold(query)));
-  $('#student-list').innerHTML=list.length?`<div class="students-panel"><table class="students-table"><thead><tr><th>Học sinh</th><th class="student-phone-col">Số điện thoại học sinh</th><th>Phụ huynh đã kích hoạt</th><th>Liên hệ phụ huynh</th><th><span class="optional">Thao tác</span></th></tr></thead><tbody>${list.map((s,i)=>`<tr><td><div class="student-name">${avatar(s.name,i)}<div><strong>${esc(s.name)}</strong>${s.address?`<small class="student-address">${esc(s.address)}</small>`:''}<small>${db.groups.filter(g=>g.members.includes(s.id)).length} nhóm học${s.demo?' · Mẫu':''}</small></div></div></td><td class="student-phone-col"><span class="phone-text">${esc(s.phone||'Chưa có SĐT')}</span></td><td class="parent-info">${linkedParentInfo(s)}</td><td class="contact-cell">${linkedParentContacts(s,true)}</td><td class="record-actions"><button class="icon-btn" data-action="edit-student" data-id="${esc(s.id)}" aria-label="Sửa ${esc(s.name)}">${icon('edit')}</button><button class="icon-btn" data-action="delete-student" data-id="${esc(s.id)}" aria-label="Xóa ${esc(s.name)}">${icon('trash')}</button></td></tr>`).join('')}</tbody></table></div>`:empty('Chưa tìm thấy học sinh','Tìm bằng tên có hoặc không dấu, tên phụ huynh hay số điện thoại.','new-student','Thêm học sinh');
+  $('#student-list').innerHTML=list.length?`<div class="students-panel"><table class="students-table"><thead><tr><th>Học sinh</th><th class="student-phone-col">Số điện thoại học sinh</th><th>Phụ huynh và liên hệ</th><th><span class="optional">Thao tác</span></th></tr></thead><tbody>${list.map((s,i)=>`<tr><td><div class="student-name">${avatar(s.name,i)}<div><strong>${esc(s.name)}</strong>${s.address?`<small class="student-address">${esc(s.address)}</small>`:''}<small>${db.groups.filter(g=>g.members.includes(s.id)).length} nhóm học${s.demo?' · Mẫu':''}</small></div></div></td><td class="student-phone-col"><span class="phone-text">${esc(s.phone||'Chưa có SĐT')}</span></td><td class="parent-info">${linkedParentInfo(s)}</td><td class="record-actions">${canEditStudent(s)?`<button class="icon-btn" data-action="edit-student" data-id="${esc(s.id)}" aria-label="Sửa ${esc(s.name)}">${icon('edit')}</button>`:''}${canManageStudents()?`<button class="icon-btn" data-action="delete-student" data-id="${esc(s.id)}" aria-label="Xóa ${esc(s.name)}">${icon('trash')}</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:empty('Chưa tìm thấy học sinh','Tìm bằng tên có hoặc không dấu, tên phụ huynh hay số điện thoại.',canManageStudents()?'new-student':'','Thêm học sinh');
 }
 function calendarHTML(big){
   const y=monthDate.getFullYear(),m=monthDate.getMonth(),first=new Date(y,m,1),last=new Date(y,m+1,0),offset=(first.getDay()+6)%7;
@@ -211,8 +213,8 @@ function field(label,name,value='',type='text',required=false,full=false,placeho
   return `<div class="field ${full?'full':''}"><label for="f-${name}">${esc(label)}${required?'':' <span class="optional">(không bắt buộc)</span>'}</label><input id="f-${name}" name="${name}" type="${type}" value="${esc(value)}" ${required?'required':''} maxlength="${type==='tel'?20:250}" ${placeholder?`placeholder="${esc(placeholder)}"`:''} autocomplete="${type==='tel'?'tel':name==='parent'?'name':'off'}" ${type==='tel'?'inputmode="tel"':''}></div>`;
 }
 function openStudentForm(id){
-  const s=student(id)||{};
-  showModal(modalHeader(id?'Sửa thông tin học sinh':'Thêm học sinh','Tối đa 2 số phụ huynh. Thông tin chỉ hiện khi tài khoản đăng nhập và đổi mật khẩu.')+`<form id="student-form" data-id="${esc(id||'')}" novalidate><div class="modal-body"><div class="form-error" role="alert"></div><div class="form-grid">${field('Họ và tên học sinh','name',s.name,'text',true,true,'VD: Nguyễn Minh Anh…')}${field('Số điện thoại học sinh','phone',s.phone,'tel',false,true,'VD: 0912 345 678…')}${field('Địa chỉ nhà','address',s.address,'text',false,true,'Số nhà, đường, phường, tỉnh/thành phố…')}<div class="form-divider">Phụ huynh 1</div>${field('Họ và tên phụ huynh','parent',s.parent,'text',false,true,'VD: Nguyễn Thu Hương…')}<div class="field"><label for="f-relation">Mối quan hệ</label><select id="f-relation" name="relation">${['Mẹ','Bố','Cha','Người giám hộ','Khác'].map(r=>`<option ${r===s.relation?'selected':''}>${r}</option>`).join('')}</select></div>${field('Số điện thoại phụ huynh','parentPhone',s.parentPhone,'tel',false,false,'VD: 0912 345 678…')}<div class="form-divider">Phụ huynh 2</div>${field('Họ và tên phụ huynh 2','parent2',s.parent2,'text',false,true)}<div class="field"><label for="f-relation2">Mối quan hệ</label><select id="f-relation2" name="relation2">${['Bố','Mẹ','Cha','Người giám hộ','Khác'].map(r=>`<option ${r===(s.relation2||'Bố')?'selected':''}>${r}</option>`).join('')}</select></div>${field('Số điện thoại phụ huynh 2','parentPhone2',s.parentPhone2,'tel',false,false,'VD: 0912 345 678…')}<div class="field full"><label for="f-note">Ghi chú <span class="optional">(không bắt buộc)</span></label><textarea id="f-note" name="note" maxlength="2000" placeholder="Thông tin cần lưu ý…">${esc(s.note||'')}</textarea></div></div></div>${formFooter(id?'Lưu thay đổi':'Thêm học sinh')}</form>`);
+  const s=student(id)||{};if(!canEditStudent(student(id))){notify('Bạn chỉ được sửa thông tin của con mình.');return;}
+  showModal(modalHeader(id?'Sửa thông tin học sinh':'Thêm học sinh',canManageStudents()?'Tối đa 2 số phụ huynh. Thông tin chỉ hiện khi tài khoản đăng nhập và đổi mật khẩu.':'Cập nhật thông tin của con bạn. Liên hệ admin để đổi liên kết phụ huynh.')+`<form id="student-form" data-id="${esc(id||'')}" novalidate><div class="modal-body"><div class="form-error" role="alert"></div><div class="form-grid">${field('Họ và tên học sinh','name',s.name,'text',true,true,'VD: Nguyễn Minh Anh…')}${field('Số điện thoại học sinh','phone',s.phone,'tel',false,true,'VD: 0912 345 678…')}${field('Địa chỉ nhà','address',s.address,'text',false,true,'Số nhà, đường, phường, tỉnh/thành phố…')}${canManageStudents()?`<div class="form-divider">Phụ huynh 1</div>${field('Họ và tên phụ huynh','parent',s.parent,'text',false,true,'VD: Nguyễn Thu Hương…')}<div class="field"><label for="f-relation">Mối quan hệ</label><select id="f-relation" name="relation">${['Mẹ','Bố','Cha','Người giám hộ','Khác'].map(r=>`<option ${r===s.relation?'selected':''}>${r}</option>`).join('')}</select></div>${field('Số điện thoại phụ huynh','parentPhone',s.parentPhone,'tel',false,false,'VD: 0912 345 678…')}<div class="form-divider">Phụ huynh 2</div>${field('Họ và tên phụ huynh 2','parent2',s.parent2,'text',false,true)}<div class="field"><label for="f-relation2">Mối quan hệ</label><select id="f-relation2" name="relation2">${['Bố','Mẹ','Cha','Người giám hộ','Khác'].map(r=>`<option ${r===(s.relation2||'Bố')?'selected':''}>${r}</option>`).join('')}</select></div>${field('Số điện thoại phụ huynh 2','parentPhone2',s.parentPhone2,'tel',false,false,'VD: 0912 345 678…')}`:''}<div class="field full"><label for="f-note">Ghi chú <span class="optional">(không bắt buộc)</span></label><textarea id="f-note" name="note" maxlength="2000" placeholder="Thông tin cần lưu ý…">${esc(s.note||'')}</textarea></div></div></div>${formFooter(id?'Lưu thay đổi':'Thêm học sinh')}</form>`);
 }
 function openTopicForm(id){
   const t=topic(id)||{color:'purple',due:localDate()};
@@ -397,7 +399,9 @@ document.addEventListener('click',async e=>{
   if(button.tagName==='A'&&button.getAttribute('href')==='#')e.preventDefault();
   if(cloud?.busy){e.preventDefault();return;}
   if(cloud?.pending&&!['export','retry-cloud','reload-cloud'].includes(action)){notify('Có thay đổi chưa đồng bộ. Xuất bản sao hoặc tải dữ liệu mới trước khi tiếp tục.');return;}
-  if(cloud?.user.role==='viewer'&&/^(new-|edit-|delete-|toggle-|reset-|commit-|import|next-|reschedule-)/.test(action)){notify('Tài khoản này chỉ có quyền xem dữ liệu.');return;}
+  if(['new-student','delete-student','import-csv','choose-csv','commit-csv'].includes(action)&&!canManageStudents()){notify('Chỉ admin được thêm, xóa hoặc nhập danh sách học sinh.');return;}
+  if(action==='edit-student'&&!canEditStudent(student(id))){notify('Bạn chỉ được sửa thông tin của con mình.');return;}
+  if(cloud?.user.role==='viewer'&&action!=='edit-student'&&/^(new-|edit-|delete-|toggle-|reset-|commit-|import|next-|reschedule-)/.test(action)){notify('Tài khoản này chỉ có quyền xem dữ liệu.');return;}
   switch(action){
     case 'profile':location.hash='profile';break;
     case 'create-class':openClassForm();break;
@@ -487,13 +491,18 @@ document.addEventListener('submit',async e=>{
   }
   const form=e.target;if(!['student-form','topic-form','group-form','class-form','session-form','user-form'].includes(form.id))return;e.preventDefault();
   if(cloud?.busy||cloud?.pending)return;
-  if(cloud?.user.role==='viewer'){notify('Tài khoản chỉ có quyền xem.');return;}
+  if(cloud?.user.role==='viewer'&&form.id!=='student-form'){notify('Tài khoản chỉ có quyền xem.');return;}
   if(form.id==='user-form'){const button=$('button[type=submit]',form);button.disabled=true;try{await cloud.addUser({...Object.fromEntries(new FormData(form)),classIds:new FormData(form).getAll('classIds')});dirty=false;await cloud.load();db=normalizeData(cloud.data);render();await openUserManagement();notify('Đã tạo tài khoản và cập nhật học sinh vào lớp. Phụ huynh đăng nhập bằng số điện thoại và mật khẩu lần đầu 12345678.');}catch(error){$('.form-error',form).textContent=error.message;}finally{button.disabled=false;}return;}
   const f=new FormData(form),id=form.dataset.id;
   const get=k=>String(f.get(k)||'').trim();
   if(form.id==='class-form'){if(cloud&&cloud.user.role!=='owner'){notify('Chỉ admin có quyền đổi thông tin lớp.');return;}const name=get('className');if(!name){form.elements.className.focus();return;}const school=get('schoolName');if(!school){form.elements.schoolName.focus();return;}db.className=name;db.schoolName=school;dirty=false;committed('Đã lưu lớp và trường.');return;}
   if(!requiredForm(form))return;
   if(form.id==='session-form'){saveSessionForm(form);return;}
+  if(form.id==='student-form'&&!canManageStudents()){
+    if(!canEditStudent(student(id)))return errorForm(form,'Bạn chỉ được sửa thông tin của con mình.');
+    const button=form.querySelector('button[type=submit]');button.disabled=true;cloud.busy=true;
+    try{await cloud.request('/students?classId='+encodeURIComponent(cloud.classId),{method:'PATCH',body:JSON.stringify({id,revision:cloud.revision,changes:{name:get('name'),phone:get('phone'),address:get('address'),note:get('note')}})});await cloud.load();db=normalizeData(cloud.data);dirty=false;closeModal(true);render();notify('Đã cập nhật thông tin con của bạn.');}catch(error){errorForm(form,error.message);}finally{button.disabled=false;cloud.busy=false;}return;
+  }
   if(form.id==='student-form'){
     const old=student(id),s={id:id||uid(),name:get('name'),phone:get('phone'),parent:get('parent'),parentPhone:get('parentPhone'),parent2:get('parent2'),parentPhone2:get('parentPhone2'),relation2:get('relation2'),address:get('address'),relation:get('relation'),note:get('note'),demo:!!old?.demo};
     if(s.parentPhone2&&!/^0[35789]\d{8}$/.test(parentPhoneKey(s.parentPhone2)))return errorForm(form,'Số phụ huynh 2 cần là số di động Việt Nam hợp lệ.','parentPhone2');
@@ -503,15 +512,16 @@ document.addEventListener('submit',async e=>{
   }else if(form.id==='topic-form'){
     const old=topic(id),t={id:id||uid(),name:get('name'),subject:get('subject'),due:get('due'),color:get('color'),description:get('description'),done:old?.done||false};
     if(!/^\d{4}-\d{2}-\d{2}$/.test(t.due)||Number.isNaN(dDate(t.due).valueOf()))return errorForm(form,'Chọn ngày hoàn thành hợp lệ.','due');
-    if(old)db.topics[db.topics.indexOf(old)]=t;else db.topics.push(t);closeModal(true);committed(id?'Đã lưu chuyên đề.':'Đã tạo chuyên đề. Bây giờ bạn có thể thêm nhóm học.');
-    if(!id)location.hash=`topics/${t.id}`;
+    if(old)db.topics[db.topics.indexOf(old)]=t;else db.topics.push(t);
+    committed(id?`Đã lưu chuyên đề “${t.name}”.`:`Đã tạo chuyên đề “${t.name}”.`,{onSuccess:()=>{closeModal(true);if(!id)location.hash=`topics/${t.id}`;}});
   }else if(form.id==='group-form'){
     if(!selectedMembers.size)return errorForm(form,'Chọn ít nhất một học sinh cho nhóm.','memberSearch');
     if(get('start')>=get('end'))return errorForm(form,'Giờ kết thúc phải sau giờ bắt đầu trong cùng ngày.','end');
     if(!/^\d{4}-\d{2}-\d{2}$/.test(get('date'))||Number.isNaN(dDate(get('date')).valueOf()))return errorForm(form,'Chọn ngày học hợp lệ.','date');
     if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(get('start'))||!/^([01]\d|2[0-3]):[0-5]\d$/.test(get('end')))return errorForm(form,'Chọn giờ bắt đầu và kết thúc hợp lệ.','start');
     const old=group(id),g={id:id||uid(),topicId:get('topicId'),name:get('name'),members:[...selectedMembers],hostId:get('hostId'),hostName:get('hostName'),hostPhone:get('hostPhone'),address:get('address'),date:get('date'),start:get('start'),end:get('end'),note:get('note'),done:old?.done||false,history:old?.history||[],sessionId:old?.sessionId||uid()};
-    if(old)db.groups[db.groups.indexOf(old)]=g;else db.groups.push(g);if(!g.done)topic(g.topicId).done=false;closeModal(true);committed(id?'Đã cập nhật nhóm học.':'Đã tạo nhóm học và lịch hẹn.');openGroupDetail(g.id);
+    if(old)db.groups[db.groups.indexOf(old)]=g;else db.groups.push(g);if(!g.done)topic(g.topicId).done=false;
+    committed(id?`Đã cập nhật nhóm học “${g.name}”.`:`Đã tạo nhóm học “${g.name}”.`,{onSuccess:()=>{closeModal(true);if(id)openGroupDetail(g.id);}});
   }
 });
 modal.addEventListener('cancel',e=>{e.preventDefault();closeModal();});

@@ -365,3 +365,7 @@ body:not(.cloud-mode) .class-picker,body:not(.cloud-mode) .header-logout{display
 }
 
 .students-table .linked-parent-actions{gap:4px;flex-wrap:wrap}.student-map{color:var(--classroom-brand);background:var(--classroom-brand-soft)}.student-map:hover{background:#dce8cf;color:#244b32}
+
+/* Keep each parent's identity and contact actions in one row. */
+.students-table .linked-parent{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px 14px}.students-table .linked-parent-text{flex:1 1 170px;min-width:0}.students-table .linked-parent-text strong{overflow-wrap:anywhere;line-height:1.6}.students-table .linked-parent-actions{flex:0 0 auto;margin-top:0;gap:4px}.students-table .linked-parent+.linked-parent{margin-top:16px;padding-top:16px;border-top:1px solid var(--classroom-line)}.students-table .linked-parent-actions .icon-btn{width:36px;height:36px}.students-table .parent-info>.linked-parent-actions{margin-top:10px}
+@media(max-width:760px){.students-table .record-actions{grid-row:auto;grid-column:1/-1;justify-self:end}.students-table .parent-info{margin-bottom:12px}}

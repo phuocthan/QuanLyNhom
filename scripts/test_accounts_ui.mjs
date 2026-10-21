@@ -49,6 +49,22 @@ try{
   assert.equal(await page.locator('.student-map').first().getAttribute('target'),'_blank');
   assert.equal(await page.locator('.parent-info').filter({hasText:'Nguyễn Thu Hương'}).count(),0);
   assert.equal(await page.locator('.parent-info').filter({hasText:'Nguyễn Minh Quang'}).count(),0);
+  async function saveCreatedForm(selector,message){
+    let release,started;const gate=new Promise(resolve=>release=resolve),requestStarted=new Promise(resolve=>started=resolve);
+    await page.route('**/api/state?*',async route=>{started();await gate;await route.continue();},{times:1});
+    await page.locator(selector+' button[type=submit]').click();await requestStarted;
+    assert.equal(await page.locator('#modal').isVisible(),true);
+    assert.equal((await page.locator('#toast').textContent()).includes(message),false);
+    release();await page.locator('#toast').filter({hasText:message}).waitFor();
+    assert.equal(await page.locator('#modal').isVisible(),false);
+  }
+  await page.goto(base+'/#topics');await page.getByRole('button',{name:'Tạo chuyên đề',exact:true}).first().click();
+  await page.locator('#topic-form [name=name]').fill('Ôn tập cùng bạn');await page.locator('#topic-form [name=due]').fill('2026-12-31');
+  await saveCreatedForm('#topic-form','Đã tạo chuyên đề “Ôn tập cùng bạn”.');
+  await page.getByRole('button',{name:'Tạo nhóm học',exact:true}).first().click();
+  await page.locator('#group-form [name=name]').fill('Nhóm Tiến Bộ');await page.locator('#group-form [name=member]').first().check();
+  await page.locator('#group-form [name=date]').fill('2026-12-30');
+  await saveCreatedForm('#group-form','Đã tạo nhóm học “Nhóm Tiến Bộ”.');
   await page.goto(base+'/#profile');
   await page.getByRole('button',{name:'Quản lý phụ huynh',exact:true}).click();
   await page.getByRole('button',{name:'Cấp tài khoản từ danh sách lớp',exact:true}).click();
@@ -103,14 +119,29 @@ try{
   await other.bringToFront();
   await other.locator('.parent-info').filter({hasText:'Nguyễn Minh Quang'}).waitFor({timeout:22000});
   assert.equal(await other.locator('.parent-info').filter({hasText:'Nguyễn Thu Hương'}).count(),1);
+  for(const [name,phone] of [['Nguyễn Thu Hương','0912345678'],['Nguyễn Minh Quang','0934567890']]){
+    const parentRow=other.locator('.linked-parent').filter({hasText:name});
+    assert.equal(await parentRow.locator('a[href^="tel:"]').getAttribute('href'),'tel:'+phone);
+    assert.equal(await parentRow.locator('a.zalo').getAttribute('href'),'https://zalo.me/'+phone);
+  }
   await other.screenshot({path:'artifacts/hoc-nhom-two-parents-mobile.png',fullPage:true});
   app.db.prepare("UPDATE users SET role='editor' WHERE phone=?").run('0934567890');
   await secondPage.reload();await secondPage.goto(base+'/#students');await secondPage.locator('.student-map').first().waitFor();
   assert.equal(await secondPage.locator('.student-map').count(),2);
   assert.equal(await secondPage.locator('.students-table tbody tr').filter({hasText:'Nguyễn Minh An'}).locator('.linked-parent-actions').first().locator('.student-map').count(),1);
+  assert.equal(await secondPage.locator('[data-action="edit-student"]').count(),1);
+  assert.equal(await secondPage.locator('[data-action="delete-student"]').count(),0);
+  assert.equal(await secondPage.getByRole('button',{name:'Nhập CSV',exact:true}).count(),0);
   await second.close();
-  await other.getByRole('button',{name:'Thêm học sinh',exact:true}).click();
-  await other.locator('#toast').filter({hasText:'chỉ có quyền xem'}).waitFor();
+  assert.equal(await other.locator('[data-action="edit-student"]').count(),1);
+  assert.equal(await other.locator('[data-action="delete-student"]').count(),0);
+  assert.equal(await other.getByRole('button',{name:'Thêm học sinh',exact:true}).count(),0);
+  await other.getByRole('button',{name:'Sửa Nguyễn Minh An',exact:true}).click();
+  assert.equal(await other.locator('#student-form [name=parentPhone]').count(),0);
+  await other.locator('#student-form [name=address]').fill('Địa chỉ gia đình cập nhật');
+  await other.locator('#student-form button[type=submit]').click();
+  await other.locator('.student-address').filter({hasText:'Địa chỉ gia đình cập nhật'}).waitFor();
+  await other.reload();await other.locator('.student-address').filter({hasText:'Địa chỉ gia đình cập nhật'}).waitFor();
   await other.goto(base+'/#profile');
   await other.locator('#profile-form [name=name]').fill('Phụ huynh đổi tên');
   await other.locator('#profile-form button[type=submit]').click();

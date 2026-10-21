@@ -49,3 +49,5 @@ Kiểm tra bổ sung `node scripts/test_accounts_ui.mjs`: server tự tạo SQLi
 Migration v6 bổ sung users.parent_activated_at, không xóa/reset dữ liệu. Tài khoản phụ huynh theo số điện thoại đã đổi mật khẩu trước nâng cấp được giữ trạng thái kích hoạt. API /api/parent-links?classId=... chỉ trả tối đa hai phụ huynh đã kích hoạt và có quyền vào lớp; trạng thái này không lưu trong JSON lớp và không phụ thuộc revision lớp. Hai liên hệ học sinh lưu ở parent/parentPhone/relation và parent2/parentPhone2/relation2. Chỉ admin được đổi số liên kết.
 
 Trang đăng nhập dùng ảnh trường trong dist/tay-son-school.png.
+
+Phụ huynh (cả viewer/editor) được cập nhật tên, SĐT học sinh, địa chỉ, ghi chú của đúng con liên kết bằng số đăng nhập qua PATCH /api/students?classId=...; yêu cầu phiên đã đổi mật khẩu, CSRF và revision. Chỉ admin quản lý danh sách/đổi liên kết phụ huynh.
