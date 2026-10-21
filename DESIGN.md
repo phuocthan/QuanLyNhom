@@ -48,3 +48,9 @@ Trang đăng nhập hiển thị ảnh THCS Tây Sơn do chủ dự án cung c�
 ## Bảng màu tham khảo GreenEdu — 21/10/2026
 
 Lấy màu từ src/garden.css, src/forest-theme.css và src/redesign.css của dự án SangKienKn; chỉ tham khảo, không thay đổi dự án đó. Xanh rêu #315d3e, xanh đậm #153f2c, nền kem #faf9f3, thẻ #fffefa, chữ #203f2c. Header/sidebar/mobile nav cùng màu xanh ô liu nhạt #eaf0df. Bốn màu phụ: lá #e8f4de, mật ong #fff1cf, trời #e5f3f8, hoa #f2eafa. Thống kê dùng nền lá/mật ong/đào/ô liu tương tự GreenEdu; chuyên đề vẫn giữ màu riêng, áp dụng nhẹ lên nền/viền và buổi học tương ứng. Giữ bố cục đăng nhập đã chọn, không sao chép bố cục/sidebar tối hoặc tài sản trường của GreenEdu.
+
+Điều hướng bên trong dùng xanh rừng GreenEdu (#356044, #2c533c), nhãn sáng và mục đang chọn xanh lá nhạt. Thẻ nội dung, thống kê và lịch dùng nền sáng thống nhất; màu chuyên đề chỉ giữ ở nhãn/icon để giảm rối. Trang đăng nhập giữ nguyên.
+
+Nút đóng hộp thoại có chữ Đóng và biểu tượng X, vùng bấm cao ít nhất 44px, cố định ở đầu hộp thoại khi cuộn.
+
+Header dùng nền sáng khi có sidebar (từ 761px) hoặc màn hình nằm ngang; màn hình dọc nhỏ giữ header xanh. Nút đăng xuất trên header dùng biểu tượng, vùng bấm 44px và tên hỗ trợ Đăng xuất.

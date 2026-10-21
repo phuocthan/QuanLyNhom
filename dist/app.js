@@ -3,6 +3,7 @@ import { parseStudentsCSV, studentKey } from './csv.js';
 import { connectCloud, passwordFields, changePassword } from './cloud.js';
 
 const paths = {
+  logout:'<path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5M14 8l4 4-4 4M8 12h13"/>',
   home:'<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
   book:'<path d="M3 4c4-1 7 0 9 2 2-2 5-3 9-2v15c-4-1-7 0-9 2-2-2-5-3-9-2zM12 6v15"/>',
   users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3a4 4 0 0 1 0 8"/><circle cx="9" cy="7" r="4"/>',
@@ -196,9 +197,9 @@ function showModal(html,kind='form',drawer=false){
   if(!modal.open)previousFocus=document.activeElement;
   dirty=false;modalKind=kind;modal.className=drawer?'drawer':kind==='search'?'search-modal':'';
   content.innerHTML=html;if(!modal.open)modal.showModal();modal.scrollTop=0;document.body.classList.add('modal-open');
-  if(innerWidth<=760&&kind==='form')$('.modal-header .icon-btn',content)?.focus({preventScroll:true});
+  if(innerWidth<=760&&kind==='form')$('.modal-header .modal-close',content)?.focus({preventScroll:true});
 }
-function modalHeader(title,sub=''){return `<div class="modal-header"><div><h2 id="modal-title">${esc(title)}</h2>${sub?`<p>${esc(sub)}</p>`:''}</div><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">${icon('close')}</button></div><div id="discard-warning"></div>`;}
+function modalHeader(title,sub=''){return `<div class="modal-header"><div><h2 id="modal-title">${esc(title)}</h2>${sub?`<p>${esc(sub)}</p>`:''}</div><button type="button" class="btn modal-close" data-action="close-modal" aria-label="Đóng">${icon('close')}<span>Đóng</span></button></div><div id="discard-warning"></div>`;}
 function closeModal(force=false){
   if(!modal.open)return;
   if(dirty&&!force){$('#discard-warning').innerHTML='<div class="discard-notice">Bạn có thay đổi chưa lưu. Tiếp tục nhập hoặc bỏ các thay đổi?<div><button type="button" class="btn small" data-action="keep-editing">Tiếp tục nhập</button><button type="button" class="btn small danger" data-action="discard">Bỏ thay đổi</button></div></div>';$('#discard-warning').scrollIntoView({block:'nearest'});return;}
